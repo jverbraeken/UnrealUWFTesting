@@ -82,6 +82,12 @@
 				</MakeCommands>
 			</Target>
 		</Build>
+		<Unit filename="E:/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h">
+			<Option target="UnrealUWFTesting"/>
+		</Unit>
+		<Unit filename="E:/Documents/Git/UnrealUWFTesting/Vector.h.h">
+			<Option target="UnrealUWFTesting"/>
+		</Unit>
 		<Unit filename="E:/Documents/Git/UnrealUWFTesting/main.cpp">
 			<Option target="UnrealUWFTesting"/>
 		</Unit>

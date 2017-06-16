@@ -13,8 +13,6 @@ fstream
 -
 vector
 -
-sys/stat.h
--
-iomanip
+winsock2.h
 -
 
