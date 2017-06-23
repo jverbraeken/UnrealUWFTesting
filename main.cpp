@@ -1,11 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
-#include<winsock2.h>
+#include <winsock2.h>
 #include "CircularBuffer.h.h"
 
 #define BUFLEN 512
-#define PORT 5432
+#define PORT 55056
 
 #define STATE_NONE 0
 #define STATE_RISING 1
@@ -64,7 +64,8 @@ private:
     long time;
 
 public:
-    Moment(long value, long time) : value(value), time(time) {}
+    Moment() {}
+    Moment(long valueIn, long timeIn) : value(valueIn), time(timeIn) {}
 
 public:
     long getValue() const {
@@ -76,12 +77,42 @@ public:
     }
 };
 
+float getFloatFromBuffer(char* buf, int offset) {
+    float tmp;
+    float result;
+    memcpy(&tmp, &buf[offset], 4);
+
+    char *floatToConvert = (char*)& tmp;
+    char *returnFloat = (char*)& result;
+    returnFloat[0] = floatToConvert[3];
+    returnFloat[1] = floatToConvert[2];
+    returnFloat[2] = floatToConvert[1];
+    returnFloat[3] = floatToConvert[0];
+
+    return result;
+}
+
+long getLongFromBuffer(char* buf, int offset) {
+    long tmp;
+    long result;
+    memcpy(&tmp, &buf[offset], 8);
+
+    char *floatToConvert = (char*)& tmp;
+    char *returnFloat = (char*)& result;
+    returnFloat[0] = floatToConvert[3];
+    returnFloat[1] = floatToConvert[2];
+    returnFloat[2] = floatToConvert[1];
+    returnFloat[3] = floatToConvert[0];
+
+    return result;
+}
+
 int main() {
     cout << "UWF testing" << endl;
     cout << "Testing file \"test.uwf\"" << endl << endl;
     struct stat buffer;
     ifstream in;
-    in.open("E:\\Documents\\Git\\UnrealUWFTesting\\asdf.uwf");
+    in.open("C:\\Users\\jverb\\Documents\\Git\\UnrealUWFTesting\\asdf.uwf");
     if (!in.is_open()) {
         return 0;
     }
@@ -127,7 +158,7 @@ int main() {
     slen = sizeof(si_other);
 
     //Initialise winsock
-    printf("\nInitialising Winsock...");
+    printf("Initialising Winsock...\n");
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
         printf("Failed. Error Code : %d", WSAGetLastError());
         exit(EXIT_FAILURE);
@@ -166,7 +197,7 @@ int main() {
 
     //keep listening for data
     while (1) {
-        printf("Waiting for data...");
+        //printf("Waiting for data...");
         fflush(stdout);
 
         //clear the buffer by filling null, it might have previously received data
@@ -179,8 +210,19 @@ int main() {
         }
 
         //print details of the client/peer and the data received
-        printf("Received packet from %s:%d\n", inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port));
-        printf("Data: %s\n", buf);
+        //printf("Received packet from %s:%d\n", inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port));
+        //printf("Data: %s\n", buf);
+        float xrot = getFloatFromBuffer(buf, 0);
+        float yrot = getFloatFromBuffer(buf, 4);
+        float zrot = getFloatFromBuffer(buf, 8);
+        long rot_timestamp = getLongFromBuffer(buf, 12);
+
+
+        printf("Float 1: %f\n", xrot);
+        printf("Float 2: %f\n", yrot);
+        printf("Float 3: %f\n", zrot);
+        printf("Float rot_timestamp: %ld\n", rot_timestamp);
+
 
         float rotationX, rotationY, rotationZ;
         long rotationTimestamp;
@@ -192,17 +234,10 @@ int main() {
 
 
 
-        if (state == STATE_NONE) {
+        /*if (state == STATE_NONE) {
             if (momentBuffer.size() >= 0) {
                 if ()
             }
-        }
-
-
-        //now reply the client with the same data
-        /*if (sendto(s, buf, recv_len, 0, (struct sockaddr *) &si_other, slen) == SOCKET_ERROR) {
-            printf("sendto() failed with error code : %d", WSAGetLastError());
-            exit(EXIT_FAILURE);
         }*/
     }
 

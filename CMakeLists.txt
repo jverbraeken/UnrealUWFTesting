@@ -3,7 +3,7 @@ project(UnrealUWFTesting)
 
 set(CMAKE_CXX_STANDARD 11)
 
-set(SOURCE_FILES main.cpp CircularBuffer.h.h Vector.h.h)
+set(SOURCE_FILES main.cpp CircularBuffer.h.h Vector.h)
 add_executable(UnrealUWFTesting ${SOURCE_FILES})
 
 if(MINGW)

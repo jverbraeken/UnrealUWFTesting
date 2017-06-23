@@ -28,7 +28,7 @@
 #define GRT_CIRCULAR_BUFFER_HEADER
 #include <iostream>
 #include <vector>
-#include "Vector.h.h"
+#include "Vector.h"
 
 /**
  @brief The CircularBuffer class provides a data structure for creating a dynamic circular buffer (also known as a
@@ -353,9 +353,6 @@ protected:
     unsigned int writePtr;
     Vector< T > buffer;
 };
-
-//Deprecated function
-template< class T > std::vector< T > CircularBuffer< T >::getDataAsVector() const{ return getData(); };
 
 
 #endif //GRT_CIRCULAR_BUFFER_HEADER
