@@ -6,15 +6,15 @@
 
 #IncludeRegexTransform: 
 
-C:/Users/jverb/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
+E:/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
 iostream
 -
 vector
 -
 Vector.h
-C:/Users/jverb/Documents/Git/UnrealUWFTesting/Vector.h
+E:/Documents/Git/UnrealUWFTesting/Vector.h
 
-C:/Users/jverb/Documents/Git/UnrealUWFTesting/Vector.h
+E:/Documents/Git/UnrealUWFTesting/Vector.h
 iostream
 -
 iterator
@@ -24,7 +24,7 @@ algorithm
 vector
 -
 
-C:/Users/jverb/Documents/Git/UnrealUWFTesting/main.cpp
+E:/Documents/Git/UnrealUWFTesting/main.cpp
 iostream
 -
 fstream
@@ -34,5 +34,5 @@ vector
 winsock2.h
 -
 CircularBuffer.h.h
-C:/Users/jverb/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
+E:/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
 
