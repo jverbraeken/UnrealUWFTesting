@@ -13,44 +13,74 @@
 #define STATE_FALLING 2
 #define STATE_STABLE 3
 
+#define MOMENT_BUFFER_SIZE 100
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 using namespace std;
+
+static const int FROM_NONE_TO_RISING[] = {2, 2};
+static const int FROM_NONE_TO_FALLING[] = {-2, -2};
+static const int FROM_RISING_TO_FALLING[] = {-4, -4};
+static const int FROM_RISING_TO_STABLE[] = {-2, -2};
+static const int FROM_FALLING_TO_RISING[] = {4, 4};
+static const int FROM_FALLING_TO_STABLE[] = {2, 2};
+static const int FROM_STABLE_TO_RISING[] = {2, 2};
+static const int FROM_STABLE_TO_FALLING[] = {-2, -2};
+
+static const int FALLING_THRESHOLD = -2;
+static const int RISING_THRESHOLD = 2;
 
 class Capture;
 
 unsigned int numGestures;
 vector<string> gestureNames;
-vector<unsigned int> numDimensions;
 vector<vector<unsigned int>> numCaptures;
 vector<vector<vector<Capture>>> captures;
 
+// for each dimension for each time a moment
+vector<CircularBuffer<Moment *> *> momentBuffer;
+vector<int> state;
+// for each dimension for each time a capture
+vector<vector<Capture>> captureBuffer;
+float cooldown_value = 0.0f;
+int cooldown_time = 0;
+int cooldown_num = 0;
+
 class Capture {
   private:
-	long start_time;
-	long end_time;
-	long start_value;
-	long end_value;
+	long long start_time;
+	long long end_time;
+	float start_value;
+	float end_value;
 	unsigned char state;
   
   public:
-	Capture(long start_time, long end_time, long start_value, long end_value, unsigned char state) : start_time(
-		start_time), end_time(end_time), start_value(start_value), end_value(end_value), state(state) {}
+	Capture(long long start_time, unsigned char state, float start_value)
+		: start_time(start_time), state(state), start_value(start_value) {}
+	
+	Capture(long long start_time, long long end_time, float start_value, float end_value, unsigned char state)
+		: start_time(start_time), end_time(end_time), start_value(start_value), end_value(end_value), state(state) {}
   
   public:
-	long getStart_time() const {
+	void end(long long end_time, float end_value) {
+		this->end_time = end_time;
+		this->end_value = end_value;
+	}
+	
+	long long getStart_time() const {
 		return start_time;
 	}
 	
-	long getEnd_time() const {
+	long long getEnd_time() const {
 		return end_time;
 	}
 	
-	long getStart_value() const {
+	float getStart_value() const {
 		return start_value;
 	}
 	
-	long getEnd_value() const {
+	float getEnd_value() const {
 		return end_value;
 	}
 	
@@ -61,26 +91,26 @@ class Capture {
 
 class Moment {
   private:
-	long value;
-	long time;
+	float value;
+	long long time;
   
   public:
 	Moment() {}
 	
-	Moment(long valueIn, long timeIn) : value(valueIn), time(timeIn) {}
+	Moment(float valueIn, long long timeIn) : value(valueIn), time(timeIn) {}
   
   public:
-	long getValue() const {
+	float getValue() const {
 		return value;
 	}
 	
-	long getTime() const {
+	long long getTime() const {
 		return time;
 	}
 };
 
-float getByteFromBuffer(char *buf, int offset) {
-	float result;
+unsigned char getByteFromBuffer(char *buf, int offset) {
+	unsigned char result;
 	memcpy(&result, &buf[offset], 1);
 	
 	return result;
@@ -120,6 +150,54 @@ long long getLongFromBuffer(char *buf, int offset) {
 	return result;
 }
 
+static const int CAPTURE_BUFFER_SIZE = 10;
+
+void checkCaptureBuffer() {
+	for (int i = 0; i < numGestures; i++) {
+		for (int j = 0; j < 6; j++) {
+			int dtw[numCaptures[i][j]][captureBuffer[j].size()];
+			for (int k = 1; k < numCaptures[i][j]; k++) {
+				dtw[k][0] = 9999;
+			}
+			for (int k = 1; k < captureBuffer[j].size(); k++) {
+				dtw[0][k] = 9999;
+			}
+			dtw[0][0] = 0;
+			
+			for (int k = 1; k < numCaptures[i][j]; k++) {
+				for (int l = 1; l < captureBuffer[j].size(); l++) {
+					int cost = -1;
+					if (captures[i][j][k].getState() == captureBuffer[j][l].getState()) {
+						cost = 0;
+					} else if (captures[i][j][k].getState() == STATE_NONE
+						|| captureBuffer[j][l].getState() == STATE_NONE) {
+						cost = 9999;
+					} else if (captures[i][j][k].getState() == STATE_FALLING) {
+						if (captureBuffer[j][l].getState() == STATE_STABLE) {
+							cost = 2;
+						} else if (captureBuffer[j][l].getState() == STATE_RISING) {
+							cost = 5;
+						}
+					} else if (captures[i][j][k].getState() == STATE_STABLE) {
+						if (captureBuffer[j][l].getState() == STATE_FALLING) {
+							cost = 2;
+						} else if (captureBuffer[j][l].getState() == STATE_RISING) {
+							cost = 2;
+						}
+					} else if (captures[i][j][k].getState() == STATE_RISING) {
+						if (captureBuffer[j][l].getState() == STATE_FALLING) {
+							cost = 5;
+						} else if (captureBuffer[j][l].getState() == STATE_STABLE) {
+							cost = 2;
+						}
+					}
+					dtw[k][l] = cost + min(dtw[k - 1][l], dtw[k][l - 1], dtw[k - 1][l - 1]);
+				}
+			}
+		}
+	}
+}
+
 int main() {
 	cout << "UWF testing" << endl;
 	cout << "Testing file \"test.uwf\"" << endl << endl;
@@ -136,11 +214,11 @@ int main() {
 		in >> gesture_text;
 		in >> _numDimensions;
 		in >> _gestureName;
-		numDimensions.push_back(_numDimensions);
+		//numDimensions.push_back(_numDimensions);
 		gestureNames.push_back(_gestureName);
 		numCaptures.push_back(vector<unsigned int>());
 		captures.push_back(vector<vector<Capture>>());
-		for (int j = 0; j < numDimensions.back(); j++) {
+		for (int j = 0; j < 6; j++) {
 			string dimension_text;
 			unsigned int _numCaptures;
 			in >> dimension_text;
@@ -195,12 +273,23 @@ int main() {
 	}
 	puts("Bind done");
 	
-	vector<CircularBuffer<Moment>> momentBuffer;
-	int state = STATE_NONE;
-	vector<Capture> captureBuffer;
-	float cooldown_value = 0.0f;
-	int cooldown_time = 0;
-	int cooldown_num = 0;
+	
+	
+	
+	
+	// for each dimension for each time a moment
+	for (int i = 0; i < 6; i++) {
+		CircularBuffer<Moment *> *buffer = new CircularBuffer(MOMENT_BUFFER_SIZE);
+		momentBuffer.push_back(buffer);
+	}
+	for (int i = 0; i < 6; i++) {
+		state.push_back(STATE_NONE);
+	}
+	// for each dimension for each time a capture
+	for (int i = 0; i < 6; i++) {
+		vector<Capture> *buffer = new vector(CAPTURE_BUFFER_SIZE);
+		captureBuffer.push_back(*buffer);
+	}
 	
 	
 	
@@ -233,19 +322,156 @@ int main() {
 		
 		float xtouch = getFloatFromBuffer(buf, 40);
 		float ytouch = getFloatFromBuffer(buf, 44);
-		char touch_state = getByteFromBuffer(buf, 48);
+		unsigned char touch_state = getByteFromBuffer(buf, 48);
 		long long touch_timestamp = getLongFromBuffer(buf, 49);
 		
+		Moment *moment[6];
+		moment[0] = new Moment(xrot, rot_timestamp);
+		moment[1] = new Moment(yrot, rot_timestamp);
+		moment[2] = new Moment(zrot, rot_timestamp);
+		moment[3] = new Moment(xacc, rot_timestamp);
+		moment[4] = new Moment(yacc, rot_timestamp);
+		moment[5] = new Moment(zacc, rot_timestamp);
+		
 		printf("Rotation: %f, %f, %f, %lld - Acceleration: %f, %f, %f, %lld - Touch: %f, %f, %c, %lld\n",
-			xrot, yrot, zrot, rot_timestamp, xacc, yacc, zacc, acc_timestamp, xtouch, ytouch, touch_state, touch_timestamp);
+		       xrot,
+		       yrot,
+		       zrot,
+		       rot_timestamp,
+		       xacc,
+		       yacc,
+		       zacc,
+		       acc_timestamp,
+		       xtouch,
+		       ytouch,
+		       touch_state,
+		       touch_timestamp);
 		
-		
-		
-		/*if (state == STATE_NONE) {
-			if (momentBuffer.size() >= 0) {
-				if ()
+		for (int i = 0; i < 6; i++) {
+			const unsigned int type = i < 3 ? 0u : 1u;
+			if (state[i] == STATE_NONE) {
+				if (momentBuffer.size() > 0) {
+					const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+					if (diff >= FROM_NONE_TO_RISING[type]) {
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_RISING,
+						                                         moment[i]->getValue())));
+					}
+					if (diff < FROM_NONE_TO_FALLING[type]) {
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_FALLING,
+						                                         moment[i]->getValue())));
+					}
+				}
 			}
-		}*/
+			if (state[i] == STATE_RISING) {
+				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+				if (diff < RISING_THRESHOLD) {
+					cooldown_value += moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+					cooldown_time += moment[i]->getTime() - momentBuffer[i]->getBack()->getTime();
+					cooldown_num++;
+					if (cooldown_value * cooldown_time < FROM_RISING_TO_FALLING[type]) {
+						captureBuffer[i].back().end(momentBuffer[i]->getBack()->getTime(),
+						                            (*(momentBuffer[i]))[momentBuffer[i]->getSize()
+							                            - cooldown_num]->getValue());
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_FALLING,
+						                                         moment[i]->getValue())));
+						cooldown_value = 0;
+						cooldown_time = 0;
+						cooldown_num = 0;
+						checkCaptureBuffer();
+					} else if (cooldown_value * cooldown_time < FROM_RISING_TO_STABLE[type]) {
+						captureBuffer[i].back().end(momentBuffer[i]->getBack()->getTime(),
+						                            (*(momentBuffer[i]))[momentBuffer[i]->getSize()
+							                            - cooldown_num]->getValue());
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_STABLE,
+						                                         moment[i]->getValue())));
+						cooldown_value = 0;
+						cooldown_time = 0;
+						cooldown_num = 0;
+						checkCaptureBuffer();
+					}
+				} else {
+					cooldown_value /= 3;
+				}
+			}
+			if (state[i] == STATE_FALLING) {
+				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+				if (diff >= FALLING_THRESHOLD) {
+					cooldown_value += moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+					cooldown_time += moment[i]->getTime() - momentBuffer[i]->getBack()->getTime();
+					cooldown_num++;
+					if (cooldown_value * cooldown_time >= FROM_FALLING_TO_RISING[type]) {
+						captureBuffer[i].back().end(momentBuffer[i]->getBack()->getTime(),
+						                            (*(momentBuffer[i]))[momentBuffer[i]->getSize()
+							                            - cooldown_num]->getValue());
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_RISING,
+						                                         moment[i]->getValue())));
+						cooldown_value = 0;
+						cooldown_time = 0;
+						cooldown_num = 0;
+						checkCaptureBuffer();
+					} else if (cooldown_value * cooldown_time >= FROM_FALLING_TO_STABLE[type]) {
+						captureBuffer[i].back().end(momentBuffer[i]->getBack()->getTime(),
+						                            (*(momentBuffer[i]))[momentBuffer[i]->getSize()
+							                            - cooldown_num]->getValue());
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_STABLE,
+						                                         moment[i]->getValue())));
+						cooldown_value = 0;
+						cooldown_time = 0;
+						cooldown_num = 0;
+						checkCaptureBuffer();
+					}
+				} else {
+					cooldown_value /= 3;
+				}
+			}
+			if (state[i] == STATE_STABLE) {
+				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+				if (diff < FALLING_THRESHOLD || diff > RISING_THRESHOLD) {
+					cooldown_value += moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+					cooldown_time += moment[i]->getTime() - momentBuffer[i]->getBack()->getTime();
+					cooldown_num++;
+					if (cooldown_value * cooldown_time >= FROM_STABLE_TO_RISING[type]) {
+						captureBuffer[i].back().end(momentBuffer[i]->getBack()->getTime(),
+						                            (*(momentBuffer[i]))[momentBuffer[i]->getSize()
+							                            - cooldown_num]->getValue());
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_RISING,
+						                                         moment[i]->getValue())));
+						cooldown_value = 0;
+						cooldown_time = 0;
+						cooldown_num = 0;
+						checkCaptureBuffer();
+					} else if (cooldown_value * cooldown_time < FROM_STABLE_TO_FALLING[type]) {
+						captureBuffer[i].back().end(momentBuffer[i]->getBack()->getTime(),
+						                            (*(momentBuffer[i]))[momentBuffer[i]->getSize()
+							                            - cooldown_num]->getValue());
+						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
+						                                         STATE_FALLING,
+						                                         moment[i]->getValue())));
+						cooldown_value = 0;
+						cooldown_time = 0;
+						cooldown_num = 0;
+						checkCaptureBuffer();
+					}
+				} else {
+					cooldown_value /= 3;
+				}
+			}
+			momentBuffer[i]->push_back(moment[i]);
+		}
+		
+		momentBuffer[0]->push_back(new Moment(xrot, rot_timestamp));
+		momentBuffer[1]->push_back(new Moment(xrot, rot_timestamp));
+		momentBuffer[2]->push_back(new Moment(xrot, rot_timestamp));
+		momentBuffer[3]->push_back(new Moment(xrot, rot_timestamp));
+		momentBuffer[4]->push_back(new Moment(xrot, rot_timestamp));
+		momentBuffer[5]->push_back(new Moment(xrot, rot_timestamp));
 	}
 	
 	closesocket(s);
