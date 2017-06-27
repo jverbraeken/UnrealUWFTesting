@@ -32,6 +32,7 @@ static const int FALLING_THRESHOLD = -2;
 static const int RISING_THRESHOLD = 2;
 
 class Capture;
+class Moment;
 
 unsigned int numGestures;
 vector<string> gestureNames;
@@ -47,6 +48,8 @@ float cooldown_value = 0.0f;
 int cooldown_time = 0;
 int cooldown_num = 0;
 
+bool isFirstSample = true;
+
 class Capture {
   private:
 	long long start_time;
@@ -56,8 +59,11 @@ class Capture {
 	unsigned char state;
   
   public:
+	Capture() {}
+	
 	Capture(long long start_time, unsigned char state, float start_value)
-		: start_time(start_time), state(state), start_value(start_value) {}
+		: start_time(start_time), state(state), start_value(start_value) {
+	}
 	
 	Capture(long long start_time, long long end_time, float start_value, float end_value, unsigned char state)
 		: start_time(start_time), end_time(end_time), start_value(start_value), end_value(end_value), state(state) {}
@@ -66,6 +72,8 @@ class Capture {
 	void end(long long end_time, float end_value) {
 		this->end_time = end_time;
 		this->end_value = end_value;
+		cout << "Capture: " << this->start_time << ", " << this->end_time << ", " << this->start_value << ", "
+		     << this->end_value << ", " << this->state << endl;
 	}
 	
 	long long getStart_time() const {
@@ -191,7 +199,7 @@ void checkCaptureBuffer() {
 							cost = 2;
 						}
 					}
-					dtw[k][l] = cost + min(dtw[k - 1][l], dtw[k][l - 1], dtw[k - 1][l - 1]);
+					dtw[k][l] = cost + min(dtw[k - 1][l], min(dtw[k][l - 1], dtw[k - 1][l - 1]));
 				}
 			}
 		}
@@ -279,7 +287,7 @@ int main() {
 	
 	// for each dimension for each time a moment
 	for (int i = 0; i < 6; i++) {
-		CircularBuffer<Moment *> *buffer = new CircularBuffer(MOMENT_BUFFER_SIZE);
+		CircularBuffer<Moment *> *buffer = new CircularBuffer<Moment*>(MOMENT_BUFFER_SIZE);
 		momentBuffer.push_back(buffer);
 	}
 	for (int i = 0; i < 6; i++) {
@@ -287,7 +295,7 @@ int main() {
 	}
 	// for each dimension for each time a capture
 	for (int i = 0; i < 6; i++) {
-		vector<Capture> *buffer = new vector(CAPTURE_BUFFER_SIZE);
+		vector<Capture> *buffer = new vector<Capture>(CAPTURE_BUFFER_SIZE);
 		captureBuffer.push_back(*buffer);
 	}
 	
@@ -350,21 +358,24 @@ int main() {
 		for (int i = 0; i < 6; i++) {
 			const unsigned int type = i < 3 ? 0u : 1u;
 			if (state[i] == STATE_NONE) {
-				if (momentBuffer.size() > 0) {
+				if (!isFirstSample) {
+					const float val1 = moment[i]->getValue();
+					const float val2 = momentBuffer[i]->getBack()->getValue();
 					const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
 					if (diff >= FROM_NONE_TO_RISING[type]) {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_RISING,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_RISING;
 					}
 					if (diff < FROM_NONE_TO_FALLING[type]) {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_FALLING,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_FALLING;
 					}
 				}
-			}
-			if (state[i] == STATE_RISING) {
+			} else if (state[i] == STATE_RISING) {
 				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
 				if (diff < RISING_THRESHOLD) {
 					cooldown_value += moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
@@ -377,6 +388,7 @@ int main() {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_FALLING,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_FALLING;
 						cooldown_value = 0;
 						cooldown_time = 0;
 						cooldown_num = 0;
@@ -388,6 +400,7 @@ int main() {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_STABLE,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_STABLE;
 						cooldown_value = 0;
 						cooldown_time = 0;
 						cooldown_num = 0;
@@ -396,8 +409,7 @@ int main() {
 				} else {
 					cooldown_value /= 3;
 				}
-			}
-			if (state[i] == STATE_FALLING) {
+			} else if (state[i] == STATE_FALLING) {
 				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
 				if (diff >= FALLING_THRESHOLD) {
 					cooldown_value += moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
@@ -410,6 +422,7 @@ int main() {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_RISING,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_RISING;
 						cooldown_value = 0;
 						cooldown_time = 0;
 						cooldown_num = 0;
@@ -421,6 +434,7 @@ int main() {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_STABLE,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_STABLE;
 						cooldown_value = 0;
 						cooldown_time = 0;
 						cooldown_num = 0;
@@ -443,6 +457,7 @@ int main() {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_RISING,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_RISING;
 						cooldown_value = 0;
 						cooldown_time = 0;
 						cooldown_num = 0;
@@ -454,6 +469,7 @@ int main() {
 						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
 						                                         STATE_FALLING,
 						                                         moment[i]->getValue())));
+						state[i] = STATE_FALLING;
 						cooldown_value = 0;
 						cooldown_time = 0;
 						cooldown_num = 0;
@@ -465,6 +481,7 @@ int main() {
 			}
 			momentBuffer[i]->push_back(moment[i]);
 		}
+		isFirstSample = false;
 		
 		momentBuffer[0]->push_back(new Moment(xrot, rot_timestamp));
 		momentBuffer[1]->push_back(new Moment(xrot, rot_timestamp));
