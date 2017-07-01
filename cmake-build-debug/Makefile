@@ -38,19 +38,19 @@ cmake_force:
 SHELL = cmd.exe
 
 # The CMake executable.
-CMAKE_COMMAND = "E:\Programs\CLion 2017.1.1\bin\cmake\bin\cmake.exe"
+CMAKE_COMMAND = "C:\Program Files\JetBrains\CLion 2017.1.3\bin\cmake\bin\cmake.exe"
 
 # The command to remove a file.
-RM = "E:\Programs\CLion 2017.1.1\bin\cmake\bin\cmake.exe" -E remove -f
+RM = "C:\Program Files\JetBrains\CLion 2017.1.3\bin\cmake\bin\cmake.exe" -E remove -f
 
 # Escaping for special characters.
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = E:\Documents\Git\UnrealUWFTesting
+CMAKE_SOURCE_DIR = C:\Users\jverb\Documents\Git\UnrealUWFTesting
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = E:\Documents\Git\UnrealUWFTesting\cmake-build-debug
+CMAKE_BINARY_DIR = C:\Users\jverb\Documents\Git\UnrealUWFTesting\cmake-build-debug
 
 #=============================================================================
 # Targets provided globally by CMake.
@@ -58,7 +58,7 @@ CMAKE_BINARY_DIR = E:\Documents\Git\UnrealUWFTesting\cmake-build-debug
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "No interactive CMake dialog available..."
-	"E:\Programs\CLion 2017.1.1\bin\cmake\bin\cmake.exe" -E echo "No interactive CMake dialog available."
+	"C:\Program Files\JetBrains\CLion 2017.1.3\bin\cmake\bin\cmake.exe" -E echo "No interactive CMake dialog available."
 .PHONY : edit_cache
 
 # Special rule for the target edit_cache
@@ -69,7 +69,7 @@ edit_cache/fast: edit_cache
 # Special rule for the target rebuild_cache
 rebuild_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running CMake to regenerate build system..."
-	"E:\Programs\CLion 2017.1.1\bin\cmake\bin\cmake.exe" -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
+	"C:\Program Files\JetBrains\CLion 2017.1.3\bin\cmake\bin\cmake.exe" -H$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR)
 .PHONY : rebuild_cache
 
 # Special rule for the target rebuild_cache
@@ -79,9 +79,9 @@ rebuild_cache/fast: rebuild_cache
 
 # The main all target
 all: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\Documents\Git\UnrealUWFTesting\cmake-build-debug\CMakeFiles E:\Documents\Git\UnrealUWFTesting\cmake-build-debug\CMakeFiles\progress.marks
+	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\jverb\Documents\Git\UnrealUWFTesting\cmake-build-debug\CMakeFiles C:\Users\jverb\Documents\Git\UnrealUWFTesting\cmake-build-debug\CMakeFiles\progress.marks
 	$(MAKE) -f CMakeFiles\Makefile2 all
-	$(CMAKE_COMMAND) -E cmake_progress_start E:\Documents\Git\UnrealUWFTesting\cmake-build-debug\CMakeFiles 0
+	$(CMAKE_COMMAND) -E cmake_progress_start C:\Users\jverb\Documents\Git\UnrealUWFTesting\cmake-build-debug\CMakeFiles 0
 .PHONY : all
 
 # The main clean target
@@ -122,6 +122,60 @@ UnrealUWFTesting/fast:
 	$(MAKE) -f CMakeFiles\UnrealUWFTesting.dir\build.make CMakeFiles/UnrealUWFTesting.dir/build
 .PHONY : UnrealUWFTesting/fast
 
+Capture.obj: Capture.cpp.obj
+
+.PHONY : Capture.obj
+
+# target to build an object file
+Capture.cpp.obj:
+	$(MAKE) -f CMakeFiles\UnrealUWFTesting.dir\build.make CMakeFiles/UnrealUWFTesting.dir/Capture.cpp.obj
+.PHONY : Capture.cpp.obj
+
+Capture.i: Capture.cpp.i
+
+.PHONY : Capture.i
+
+# target to preprocess a source file
+Capture.cpp.i:
+	$(MAKE) -f CMakeFiles\UnrealUWFTesting.dir\build.make CMakeFiles/UnrealUWFTesting.dir/Capture.cpp.i
+.PHONY : Capture.cpp.i
+
+Capture.s: Capture.cpp.s
+
+.PHONY : Capture.s
+
+# target to generate assembly for a file
+Capture.cpp.s:
+	$(MAKE) -f CMakeFiles\UnrealUWFTesting.dir\build.make CMakeFiles/UnrealUWFTesting.dir/Capture.cpp.s
+.PHONY : Capture.cpp.s
+
+Moment.obj: Moment.cpp.obj
+
+.PHONY : Moment.obj
+
+# target to build an object file
+Moment.cpp.obj:
+	$(MAKE) -f CMakeFiles\UnrealUWFTesting.dir\build.make CMakeFiles/UnrealUWFTesting.dir/Moment.cpp.obj
+.PHONY : Moment.cpp.obj
+
+Moment.i: Moment.cpp.i
+
+.PHONY : Moment.i
+
+# target to preprocess a source file
+Moment.cpp.i:
+	$(MAKE) -f CMakeFiles\UnrealUWFTesting.dir\build.make CMakeFiles/UnrealUWFTesting.dir/Moment.cpp.i
+.PHONY : Moment.cpp.i
+
+Moment.s: Moment.cpp.s
+
+.PHONY : Moment.s
+
+# target to generate assembly for a file
+Moment.cpp.s:
+	$(MAKE) -f CMakeFiles\UnrealUWFTesting.dir\build.make CMakeFiles/UnrealUWFTesting.dir/Moment.cpp.s
+.PHONY : Moment.cpp.s
+
 main.obj: main.cpp.obj
 
 .PHONY : main.obj
@@ -158,6 +212,12 @@ help:
 	@echo ... UnrealUWFTesting
 	@echo ... edit_cache
 	@echo ... rebuild_cache
+	@echo ... Capture.obj
+	@echo ... Capture.i
+	@echo ... Capture.s
+	@echo ... Moment.obj
+	@echo ... Moment.i
+	@echo ... Moment.s
 	@echo ... main.obj
 	@echo ... main.i
 	@echo ... main.s

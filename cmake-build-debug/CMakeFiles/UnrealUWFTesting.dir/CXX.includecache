@@ -6,15 +6,29 @@
 
 #IncludeRegexTransform: 
 
-E:/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Capture.cpp
+iostream
+-
+Capture.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Capture.h
+
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Capture.h
+
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
 iostream
 -
 vector
 -
 Vector.h
-E:/Documents/Git/UnrealUWFTesting/Vector.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Vector.h
 
-E:/Documents/Git/UnrealUWFTesting/Vector.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Moment.cpp
+Moment.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Moment.h
+
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Moment.h
+
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Vector.h
 iostream
 -
 iterator
@@ -24,7 +38,7 @@ algorithm
 vector
 -
 
-E:/Documents/Git/UnrealUWFTesting/main.cpp
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/main.cpp
 iostream
 -
 fstream
@@ -33,6 +47,12 @@ vector
 -
 winsock2.h
 -
+array
+-
 CircularBuffer.h.h
-E:/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/CircularBuffer.h.h
+Moment.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Moment.h
+Capture.h
+C:/Users/jverb/Documents/Git/UnrealUWFTesting/Capture.h
 
