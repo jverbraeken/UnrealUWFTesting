@@ -2,7 +2,6 @@
 #include <fstream>
 #include <vector>
 #include <winsock2.h>
-#include <array>
 #include "CircularBuffer.h.h"
 
 #include "Moment.h"
@@ -12,10 +11,9 @@
 #define BUFLEN 512
 #define PORT 55056
 
-#define STATE_NONE 0
-#define STATE_RISING 1
-#define STATE_FALLING 2
-#define STATE_STABLE 3
+#define STATE_RISING 0
+#define STATE_FALLING 1
+#define STATE_STABLE 2
 
 #define LOG_INCOMING 0
 
@@ -25,14 +23,12 @@
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 using namespace std;
 
-static const int FROM_NONE_TO_RISING[] = {2, 2};
-static const int FROM_NONE_TO_FALLING[] = {-2, -2};
-static const int FROM_RISING_TO_FALLING[] = {-4, -4};
-static const int FROM_RISING_TO_STABLE[] = {-2, -2};
-static const int FROM_FALLING_TO_RISING[] = {4, 4};
-static const int FROM_FALLING_TO_STABLE[] = {2, 2};
-static const int FROM_STABLE_TO_RISING[] = {2, 2};
-static const int FROM_STABLE_TO_FALLING[] = {-2, -2};
+static const int FROM_RISING_TO_FALLING[] = {-4000, -1000};
+static const int FROM_RISING_TO_STABLE[] = {-2000, -500};
+static const int FROM_FALLING_TO_RISING[] = {4000, 2000};
+static const int FROM_FALLING_TO_STABLE[] = {2000, 500};
+static const int FROM_STABLE_TO_RISING[] = {2000, 500};
+static const int FROM_STABLE_TO_FALLING[] = {-2000, -500};
 
 static const int FALLING_THRESHOLD = -2;
 static const int RISING_THRESHOLD = 2;
@@ -56,7 +52,6 @@ int cooldown_time = 0;
 int cooldown_num = 0;
 
 bool isFirstSample = true;
-array<Moment, 6> firstCapture;
 
 unsigned char getByteFromBuffer(char *buf, int offset) {
 	unsigned char result;
@@ -118,9 +113,6 @@ void checkCaptureBuffer() {
 					int cost = -1;
 					if (captures[i][j][k].getState() == captureBuffer[j][l].getState()) {
 						cost = 0;
-					} else if (captures[i][j][k].getState() == STATE_NONE
-					           || captureBuffer[j][l].getState() == STATE_NONE) {
-						cost = 9999;
 					} else if (captures[i][j][k].getState() == STATE_FALLING) {
 						if (captureBuffer[j][l].getState() == STATE_STABLE) {
 							cost = 2;
@@ -277,7 +269,7 @@ int main() {
 		momentBuffer.push_back(buffer);
 	}
 	for (int i = 0; i < 6; i++) {
-		state.push_back(STATE_NONE);
+		state.push_back(STATE_STABLE);
 	}
 	// for each dimension for each time a capture
 	for (int i = 0; i < 6; i++) {
@@ -343,41 +335,12 @@ int main() {
 			   touch_timestamp);
 #endif
 
-		for (int i = 0; i < 6; i++) {
+		for (int i = 0; i < 1; i++) {
 			const unsigned int type = i < 3 ? 0u : 1u;
-			if (state[i] == STATE_NONE) {
-				if (!isFirstSample) {
-					const float new_value = moment[i]->getValue();
-					const float old_value = firstCapture[i].getValue();
-					const float diff = old_value - new_value;
-					if (diff >= FROM_NONE_TO_RISING[type]) {
-						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
-						                                         STATE_RISING,
-						                                         new_value)));
-						state[i] = STATE_RISING;
-						cooldown_value = 0;
-						cooldown_time = 0;
-						cooldown_num = 0;
-						checkCaptureBuffer();
-					} else if (diff < FROM_NONE_TO_FALLING[type]) {
-						captureBuffer[i].push_back(*(new Capture(moment[i]->getTime(),
-						                                         STATE_FALLING,
-						                                         new_value)));
-						state[i] = STATE_FALLING;
-						cooldown_value = 0;
-						cooldown_time = 0;
-						cooldown_num = 0;
-						checkCaptureBuffer();
-					} else {
-						firstCapture[i] = *(moment[i]);
-					}
-				} else {
-					firstCapture[i] = *(moment[i]);
-				}
-			} else if (state[i] == STATE_RISING) {
+			if (state[i] == STATE_RISING) {
 				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
 				if (diff < RISING_THRESHOLD) {
-					cooldown_value += diff;
+					cooldown_value += diff - RISING_THRESHOLD;
 					cooldown_time += moment[i]->getTime() - momentBuffer[i]->getBack()->getTime();
 					cooldown_num++;
 					if (cooldown_value * cooldown_time < FROM_RISING_TO_FALLING[type]) {
@@ -391,7 +354,7 @@ int main() {
 			} else if (state[i] == STATE_FALLING) {
 				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
 				if (diff >= FALLING_THRESHOLD) {
-					cooldown_value += diff;
+					cooldown_value += diff - FALLING_THRESHOLD;
 					cooldown_time += moment[i]->getTime() - momentBuffer[i]->getBack()->getTime();
 					cooldown_num++;
 					if (cooldown_value * cooldown_time >= FROM_FALLING_TO_RISING[type]) {
@@ -403,34 +366,39 @@ int main() {
 					cooldown_value /= 3;
 				}
 			} else if (state[i] == STATE_STABLE) {
-				const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
-				if (diff < FALLING_THRESHOLD || diff > RISING_THRESHOLD) {
-					cooldown_value += diff;
-					cooldown_time += moment[i]->getTime() - momentBuffer[i]->getBack()->getTime();
-					cooldown_num++;
-					if (cooldown_value * cooldown_time >= FROM_STABLE_TO_RISING[type]) {
-						goToRising(i, moment[i]);
-					} else if (cooldown_value * cooldown_time < FROM_STABLE_TO_FALLING[type]) {
-						goToFalling(i, moment[i]);
-					}
+				if (isFirstSample) {
+					isFirstSample = false;
 				} else {
-					cooldown_value /= 3;
+					const float diff = moment[i]->getValue() - momentBuffer[i]->getBack()->getValue();
+					if (diff < FALLING_THRESHOLD || diff > RISING_THRESHOLD) {
+						if (diff < FALLING_THRESHOLD) {
+							cooldown_value -= diff;
+						}
+						if (diff > RISING_THRESHOLD) {
+							cooldown_value += diff;
+						}
+						cooldown_time += moment[i]->getTime() - momentBuffer[i]->getBack()->getTime();
+						cooldown_num++;
+						if (cooldown_value * cooldown_time >= FROM_STABLE_TO_RISING[type]) {
+							goToRising(i, moment[i]);
+						} else if (cooldown_value * cooldown_time < FROM_STABLE_TO_FALLING[type]) {
+							goToFalling(i, moment[i]);
+						}
+					} else {
+						cooldown_value /= 3;
+					}
 				}
 			}
 			momentBuffer[i]->push_back(moment[i]);
 		}
-		isFirstSample = false;
 
 		momentBuffer[0]->push_back(new Moment(xrot, rot_timestamp));
-		momentBuffer[1]->push_back(new Moment(xrot, rot_timestamp));
-		momentBuffer[2]->push_back(new Moment(xrot, rot_timestamp));
-		momentBuffer[3]->push_back(new Moment(xrot, rot_timestamp));
-		momentBuffer[4]->push_back(new Moment(xrot, rot_timestamp));
-		momentBuffer[5]->push_back(new Moment(xrot, rot_timestamp));
+		momentBuffer[1]->push_back(new Moment(yrot, rot_timestamp));
+		momentBuffer[2]->push_back(new Moment(zrot, rot_timestamp));
+		momentBuffer[3]->push_back(new Moment(xacc, acc_timestamp));
+		momentBuffer[4]->push_back(new Moment(yacc, acc_timestamp));
+		momentBuffer[5]->push_back(new Moment(zacc, acc_timestamp));
 	}
-
-	closesocket(s);
-	WSACleanup();
 }
 
 #pragma clang diagnostic pop
