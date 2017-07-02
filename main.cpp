@@ -265,8 +265,7 @@ int main() {
 
 	// for each dimension for each time a moment
 	for (int i = 0; i < 6; i++) {
-		CircularBuffer<Moment *> *buffer = new CircularBuffer<Moment *>(MOMENT_BUFFER_SIZE);
-		momentBuffer.push_back(buffer);
+		momentBuffer.push_back(new CircularBuffer<Moment *>(MOMENT_BUFFER_SIZE));
 	}
 	for (int i = 0; i < 6; i++) {
 		state.push_back(STATE_STABLE);
