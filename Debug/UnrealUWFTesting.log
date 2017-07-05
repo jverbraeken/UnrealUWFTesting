@@ -1,0 +1,33 @@
+﻿  main.cpp
+main.cpp(24): warning C4068: unknown pragma
+main.cpp(25): warning C4068: unknown pragma
+main.cpp(100): warning C4018: '<': signed/unsigned mismatch
+main.cpp(103): warning C4018: '<': signed/unsigned mismatch
+main.cpp(106): warning C4018: '<': signed/unsigned mismatch
+main.cpp(111): warning C4018: '<': signed/unsigned mismatch
+main.cpp(112): warning C4018: '<': signed/unsigned mismatch
+main.cpp(208): warning C4018: '<': signed/unsigned mismatch
+main.cpp(226): warning C4018: '<': signed/unsigned mismatch
+main.cpp(354): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(371): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(392): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(411): warning C4068: unknown pragma
+c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a': unreferenced local variable
+  c:\users\jverb\documents\git\unrealuwftesting\Vector.h(133): note: while compiling class template member function 'bool Vector<T>::resize(const unsigned int)'
+          with
+          [
+              T=Moment *
+          ]
+  c:\users\jverb\documents\git\unrealuwftesting\Vector.h(162): note: see reference to function template instantiation 'bool Vector<T>::resize(const unsigned int)' being compiled
+          with
+          [
+              T=Moment *
+          ]
+  c:\users\jverb\documents\git\unrealuwftesting\CircularBuffer.h.h(364): note: see reference to class template instantiation 'Vector<T>' being compiled
+          with
+          [
+              T=Moment *
+          ]
+  main.cpp(151): note: see reference to class template instantiation 'CircularBuffer<Moment *>' being compiled
+  UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.exe
+  UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.pdb (Full PDB)

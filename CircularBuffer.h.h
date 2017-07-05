@@ -142,6 +142,16 @@ public:
         return buffer[ (readPtr + index) % bufferSize ];
     }
 
+	/**
+	This is the constant access operator and will return a value relative to the current read pointer.
+
+	@param const unsigned int &index: the index of the element you want access to, should be in the range [0 bufferSize-1]
+	@return returns a const reference to the element at the index
+	*/
+	const T& getElem(const unsigned int &index) const {
+		return buffer[(readPtr + index) % bufferSize];
+	}
+
     /**
      This is a special access operator that will return the value at the specific index (regardless of the position of the read pointer).
 

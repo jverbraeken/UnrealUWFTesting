@@ -14,7 +14,7 @@ void Capture::end(long long end_time, float end_value) {
         this->end_time = end_time;
         this->end_value = end_value;
         std::cout << "Capture: " << this->start_time << ", " << this->end_time << ", " << this->start_value << ", "
-             << this->end_value << ", " << this->state << std::endl;
+             << this->end_value << ", " << static_cast<unsigned>(this->state) << std::endl;
     }
 
     long long Capture::getStart_time() const {
