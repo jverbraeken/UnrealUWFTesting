@@ -1,17 +1,15 @@
 ﻿  main.cpp
-main.cpp(24): warning C4068: unknown pragma
-main.cpp(25): warning C4068: unknown pragma
-main.cpp(100): warning C4018: '<': signed/unsigned mismatch
-main.cpp(103): warning C4018: '<': signed/unsigned mismatch
+main.cpp(101): warning C4018: '<': signed/unsigned mismatch
 main.cpp(106): warning C4018: '<': signed/unsigned mismatch
-main.cpp(111): warning C4018: '<': signed/unsigned mismatch
-main.cpp(112): warning C4018: '<': signed/unsigned mismatch
-main.cpp(208): warning C4018: '<': signed/unsigned mismatch
-main.cpp(226): warning C4018: '<': signed/unsigned mismatch
-main.cpp(354): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(371): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(392): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(411): warning C4068: unknown pragma
+main.cpp(109): warning C4018: '<': signed/unsigned mismatch
+main.cpp(114): warning C4018: '<': signed/unsigned mismatch
+main.cpp(115): warning C4018: '<': signed/unsigned mismatch
+main.cpp(220): warning C4018: '<': signed/unsigned mismatch
+main.cpp(238): warning C4018: '<': signed/unsigned mismatch
+main.cpp(366): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(383): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(404): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(423): warning C4068: unknown pragma
 c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a': unreferenced local variable
   c:\users\jverb\documents\git\unrealuwftesting\Vector.h(133): note: while compiling class template member function 'bool Vector<T>::resize(const unsigned int)'
           with
@@ -28,6 +26,6 @@ c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a':
           [
               T=Moment *
           ]
-  main.cpp(151): note: see reference to class template instantiation 'CircularBuffer<Moment *>' being compiled
+  main.cpp(163): note: see reference to class template instantiation 'CircularBuffer<Moment *>' being compiled
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.exe
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.pdb (Full PDB)

@@ -13,16 +13,14 @@
 #define BUFLEN 512
 #define PORT 55056
 
-#define STATE_RISING 0
-#define STATE_FALLING 1
-#define STATE_STABLE 2
+#define STATE_RISING '0'
+#define STATE_FALLING '1'
+#define STATE_STABLE '2'
 
 #define LOG_INCOMING 0
 
 #define MOMENT_BUFFER_SIZE 100
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
 using namespace std;
 
 static const int FROM_RISING_TO_FALLING[] = { -7000, -1000 };
@@ -35,14 +33,17 @@ static const int FROM_STABLE_TO_FALLING[] = { -4000, -500 };
 static const int FALLING_THRESHOLD = -2;
 static const int RISING_THRESHOLD = 2;
 
+// TODO: do we actually need this?
+static const double CAPTURES_MATCH_GESTURE_THRESHOLD = 0.2;
+
 class Capture;
 
 class Moment;
 
 unsigned int numGestures;
-vector<string> gestureNames;
-vector<vector<unsigned int>> numCaptures;
-vector<vector<vector<Capture>>> captures;
+vector<string> preGestureNames;
+vector<vector<unsigned int>> numPreCaptures;
+vector<vector<vector<Capture>>> preCaptures;
 
 // for each dimension for each time a moment
 vector<CircularBuffer<Moment *> *> momentBuffer;
@@ -99,46 +100,57 @@ long long getLongFromBuffer(char *buf, int offset) {
 void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
 		for (int j = 1; j < 2; j++) {
-			vector<vector<int>> dtw(numCaptures[i][j], vector<int>(captureBuffer[j]->size()));
-			for (int k = 1; k < numCaptures[i][j]; k++) {
-				dtw[k][0] = 9999;
-			}
-			for (int k = 1; k < captureBuffer[j]->size(); k++) {
-				dtw[0][k] = 9999;
-			}
-			dtw[0][0] = 0;
+			for (int captureOffset = 0; captureOffset <= (int) captureBuffer[j]->size() - (int) numPreCaptures[i][j]; captureOffset++) {
 
-			for (int k = 1; k < numCaptures[i][j]; k++) {
-				for (int l = 1; l < captureBuffer[j]->size(); l++) {
-					int cost = -1;
-					if (captures[i][j][k].getState() == (*(*captureBuffer[j])[l]).getState()) {
-						cost = 0;
+				vector<vector<int>> dtw(numPreCaptures[i][j] + 1, vector<int>(captureBuffer[j]->size() - captureOffset + 1));
+				for (int k = 1; k < numPreCaptures[i][j]; k++) {
+					dtw[k][0] = 999999;
+				}
+				for (int k = 1; k < captureBuffer[j]->size() - captureOffset; k++) {
+					dtw[0][k] = 999999;
+				}
+				dtw[0][0] = 0;
+
+				for (int k = 0; k < numPreCaptures[i][j]; k++) {
+					for (int l = 0; l < captureBuffer[j]->size() - captureOffset; l++) {
+						int cost = -1;
+						if (preCaptures[i][j][k].getState() == (*(*captureBuffer[j])[l + captureOffset]).getState()) {
+							cost = 0;
+						}
+						else if (preCaptures[i][j][k].getState() == STATE_FALLING) {
+							if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_STABLE) {
+								cost = 2;
+							}
+							else if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_RISING) {
+								cost = 5;
+							}
+						}
+						else if (preCaptures[i][j][k].getState() == STATE_STABLE) {
+							if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_FALLING) {
+								cost = 2;
+							}
+							else if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_RISING) {
+								cost = 2;
+							}
+						}
+						else if (preCaptures[i][j][k].getState() == STATE_RISING) {
+							if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_FALLING) {
+								cost = 5;
+							}
+							else if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_STABLE) {
+								cost = 2;
+							}
+						}
+						dtw[k + 1][l + 1] = cost + min(dtw[k][l + 1], min(dtw[k + 1][l], dtw[k][l]));
 					}
-					else if (captures[i][j][k].getState() == STATE_FALLING) {
-						if ((*(*captureBuffer[j])[l]).getState() == STATE_STABLE) {
-							cost = 2;
-						}
-						else if ((*(*captureBuffer[j])[l]).getState() == STATE_RISING) {
-							cost = 5;
-						}
-					}
-					else if (captures[i][j][k].getState() == STATE_STABLE) {
-						if ((*(*captureBuffer[j])[l]).getState() == STATE_FALLING) {
-							cost = 2;
-						}
-						else if ((*(*captureBuffer[j])[l]).getState() == STATE_RISING) {
-							cost = 2;
+				}
+				if (dtw[numPreCaptures[i][j] - 1][captureBuffer[j]->size() - captureOffset - 1] / (captureBuffer[j]->size() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
+					if (true) {
+						cout << "Gesture matched!!!" << endl;
+						for (int i = 0; i < 6; i++) {
+							captureBuffer[i]->clear();
 						}
 					}
-					else if (captures[i][j][k].getState() == STATE_RISING) {
-						if ((*(*captureBuffer[j])[l]).getState() == STATE_FALLING) {
-							cost = 5;
-						}
-						else if ((*(*captureBuffer[j])[l]).getState() == STATE_STABLE) {
-							cost = 2;
-						}
-					}
-					dtw[k][l] = cost + min(dtw[k - 1][l], min(dtw[k][l - 1], dtw[k - 1][l - 1]));
 				}
 			}
 		}
@@ -213,17 +225,17 @@ int main() {
 		in >> _numDimensions;
 		in >> _gestureName;
 		//numDimensions.push_back(_numDimensions);
-		gestureNames.push_back(_gestureName);
-		numCaptures.push_back(vector<unsigned int>());
-		captures.push_back(vector<vector<Capture>>());
+		preGestureNames.push_back(_gestureName);
+		numPreCaptures.push_back(vector<unsigned int>());
+		preCaptures.push_back(vector<vector<Capture>>());
 		for (int j = 0; j < 6; j++) {
 			string dimension_text;
 			unsigned int _numCaptures;
 			in >> dimension_text;
 			in >> _numCaptures;
-			numCaptures.back().push_back(_numCaptures);
-			captures.back().push_back(vector<Capture>());
-			for (int k = 0; k < numCaptures.back().back(); k++) {
+			numPreCaptures.back().push_back(_numCaptures);
+			preCaptures.back().push_back(vector<Capture>());
+			for (int k = 0; k < numPreCaptures.back().back(); k++) {
 				string capture_text;
 				long start_time;
 				long end_time;
@@ -231,7 +243,7 @@ int main() {
 				float end_value;
 				unsigned char state;
 				in >> capture_text >> start_time >> end_time >> start_value >> end_value >> state;
-				captures.back().back().push_back(Capture(start_time, end_time, start_value, end_value, state));
+				preCaptures.back().back().push_back(Capture(start_time, end_time, start_value, end_value, state));
 			}
 		}
 	}
