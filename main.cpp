@@ -100,6 +100,7 @@ long long getLongFromBuffer(char *buf, int offset) {
 void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
 		for (int j = 1; j < 2; j++) {
+			// TODO this should be reversed to improve efficiency
 			for (int captureOffset = 0; captureOffset <= (int) captureBuffer[j]->size() - (int) numPreCaptures[i][j]; captureOffset++) {
 
 				vector<vector<int>> dtw(numPreCaptures[i][j] + 1, vector<int>(captureBuffer[j]->size() - captureOffset + 1));
@@ -144,6 +145,8 @@ void checkCaptureBuffer() {
 						dtw[k + 1][l + 1] = cost + min(dtw[k][l + 1], min(dtw[k + 1][l], dtw[k][l]));
 					}
 				}
+				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
+				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
 				if (dtw[numPreCaptures[i][j] - 1][captureBuffer[j]->size() - captureOffset - 1] / (captureBuffer[j]->size() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
 					if (true) {
 						cout << "Gesture matched!!!" << endl;
@@ -208,13 +211,13 @@ void goToFalling(int i, Moment *moment) {
 	checkCaptureBuffer();
 }
 
-int main() {
-	cout << "UWF testing" << endl;
+void useUWF() {
+
 	cout << "Testing file \"test.uwf\"" << endl << endl;
 	ifstream in;
 	in.open("C:\\Users\\jverb\\Documents\\Git\\UnrealUWFTesting\\test.uwf");
 	if (!in.is_open()) {
-		return 0;
+		cout << "File cannot be opened" << endl;
 	}
 	in >> numGestures;
 	for (int i = 0; i < numGestures; i++) {
@@ -248,6 +251,191 @@ int main() {
 		}
 	}
 	in.close();
+}
+
+/*void useGRT() {
+
+	cout << "Testing file \"test.grt\"" << endl << endl;
+	ifstream in;
+	in.open("C:\\Users\\jverb\\Documents\\Git\\UnrealUWFTesting\\test.grt");
+	if (!in.is_open()) {
+		cout << "File cannot be opened" << endl;
+	}
+
+	std::string word;
+
+	//Check to make sure this is a file with the Training File Format
+	in >> word;
+	if (word != "GRT_LABELLED_TIME_SERIES_CLASSIFICATION_DATA_FILE_V1.0") {
+		cout << "loadDatasetFromFile(std::string filename) - Failed to find file header!" << std::endl;
+	}
+
+	//Get the name of the dataset
+	in >> word;
+	if (word != "DatasetName:") {
+		cout << "loadDatasetFromFile(std::string filename) - failed to find DatasetName!" << std::endl;
+	}
+	in >> word;
+
+	in >> word;
+	if (word != "InfoText:") {
+		cout << "loadDatasetFromFile(std::string filename) - failed to find InfoText!" << std::endl;
+	}
+
+	//Load the info text
+	in >> word;
+	while (word != "NumDimensions:") {
+		in >> word;
+	}
+
+	//Get the number of dimensions in the training data
+	if (word != "NumDimensions:") {
+		cout << "loadDatasetFromFile(std::string filename) - Failed to find NumDimensions!" << std::endl;
+	}
+	in >> word;
+
+	//Get the total number of training examples in the training data
+	in >> word;
+	if (word != "TotalNumTrainingExamples:") {
+		cout << "loadDatasetFromFile(std::string filename) - Failed to find TotalNumTrainingExamples!" << std::endl;
+	}
+	in >> word;
+
+	//Get the total number of classes in the training data
+	in >> word;
+	if (word != "NumberOfClasses:") {
+		cout << "loadDatasetFromFile(std::string filename) - Failed to find NumberOfClasses!" << std::endl;
+	}
+	in >> numGestures;
+
+	//Get the total number of classes in the training data
+	in >> word;
+	if (word != "ClassIDsAndCounters:") {
+		cout << "loadDatasetFromFile(std::string filename) - Failed to find ClassIDsAndCounters!" << std::endl;
+	}
+
+	for (UINT i = 0; i < numGestures; i++) {
+		in >> classTracker[i].classLabel;
+		in >> classTracker[i].counter;
+	}
+
+	//Get the UseExternalRanges
+	in >> word;
+	if (word != "UseExternalRanges:") {
+		file.close();
+		clear();
+		cout << "loadDatasetFromFile(std::string filename) - Failed to find UseExternalRanges!" << std::endl;
+		return false;
+	}
+
+	in >> useExternalRanges;
+
+	if (useExternalRanges) {
+		externalRanges.resize(numDimensions);
+		for (UINT i = 0; i<externalRanges.size(); i++) {
+			in >> externalRanges[i].minValue;
+			in >> externalRanges[i].maxValue;
+		}
+	}
+
+	//Get the main training data
+	in >> word;
+	if (word != "LabelledTimeSeriesTrainingData:") {
+		file.close();
+		clear();
+		cout << "loadDatasetFromFile(std::string filename) - Failed to find LabelledTimeSeriesTrainingData!" << std::endl;
+		return false;
+	}
+
+	//Reset the memory
+	data.resize(totalNumSamples, TimeSeriesClassificationSample());
+
+	//Load each of the time series
+	for (UINT x = 0; x<totalNumSamples; x++) {
+		UINT classLabel = 0;
+		UINT timeSeriesLength = 0;
+
+		in >> word;
+		if (word != "************TIME_SERIES************") {
+			file.close();
+			clear();
+			cout << "loadDatasetFromFile(std::string filename) - Failed to find TimeSeries Header!" << std::endl;
+			return false;
+		}
+
+		in >> word;
+		if (word != "ClassID:") {
+			file.close();
+			clear();
+			cout << "loadDatasetFromFile(std::string filename) - Failed to find ClassID!" << std::endl;
+			return false;
+		}
+		in >> classLabel;
+
+		in >> word;
+		if (word != "TimeSeriesLength:") {
+			file.close();
+			clear();
+			cout << "loadDatasetFromFile(std::string filename) - Failed to find TimeSeriesLength!" << std::endl;
+			return false;
+		}
+		in >> timeSeriesLength;
+
+		in >> word;
+		if (word != "TimeSeriesData:") {
+			file.close();
+			clear();
+			cout << "loadDatasetFromFile(std::string filename) - Failed to find TimeSeriesData!" << std::endl;
+			return false;
+		}
+
+		//Load the time series data
+		MatrixFloat trainingExample(timeSeriesLength, numDimensions);
+		for (UINT i = 0; i<timeSeriesLength; i++) {
+			for (UINT j = 0; j<numDimensions; j++) {
+				in >> trainingExample[i][j];
+			}
+		}
+
+		data[x].setTrainingSample(classLabel, trainingExample);
+	}
+	in >> numGestures;
+	for (int i = 0; i < numGestures; i++) {
+		string gesture_text;
+		unsigned int _numDimensions;
+		string _gestureName;
+		in >> gesture_text;
+		in >> _numDimensions;
+		in >> _gestureName;
+		//numDimensions.push_back(_numDimensions);
+		preGestureNames.push_back(_gestureName);
+		numPreCaptures.push_back(vector<unsigned int>());
+		preCaptures.push_back(vector<vector<Capture>>());
+		for (int j = 0; j < 6; j++) {
+			string dimension_text;
+			unsigned int _numCaptures;
+			in >> dimension_text;
+			in >> _numCaptures;
+			numPreCaptures.back().push_back(_numCaptures);
+			preCaptures.back().push_back(vector<Capture>());
+			for (int k = 0; k < numPreCaptures.back().back(); k++) {
+				string capture_text;
+				long start_time;
+				long end_time;
+				float start_value;
+				float end_value;
+				unsigned char state;
+				in >> capture_text >> start_time >> end_time >> start_value >> end_value >> state;
+				preCaptures.back().back().push_back(Capture(start_time, end_time, start_value, end_value, state));
+			}
+		}
+	}
+	in.close();
+}*/
+
+int main() {
+	cout << "UWF testing" << endl;
+	useUWF();
 
 	SOCKET s;
 	struct sockaddr_in server, si_other;
