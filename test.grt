@@ -1,6 +1,6 @@
 GRT_LABELLED_TIME_SERIES_CLASSIFICATION_DATA_FILE_V1.0
-DatasetName: Undefined name
-InfoText: Undefined info
+DatasetName: Undefined_name
+InfoText: Undefined_info
 NumDimensions: 6
 TotalNumTrainingExamples: 1
 NumberOfClasses: 1

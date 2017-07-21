@@ -1,15 +1,27 @@
 ﻿  main.cpp
-main.cpp(101): warning C4018: '<': signed/unsigned mismatch
-main.cpp(106): warning C4018: '<': signed/unsigned mismatch
-main.cpp(109): warning C4018: '<': signed/unsigned mismatch
-main.cpp(114): warning C4018: '<': signed/unsigned mismatch
-main.cpp(115): warning C4018: '<': signed/unsigned mismatch
-main.cpp(220): warning C4018: '<': signed/unsigned mismatch
-main.cpp(238): warning C4018: '<': signed/unsigned mismatch
-main.cpp(366): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(383): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(404): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(423): warning C4068: unknown pragma
+main.cpp(128): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
+main.cpp(133): warning C4018: '<': signed/unsigned mismatch
+main.cpp(138): warning C4018: '<': signed/unsigned mismatch
+main.cpp(146): warning C4018: '<': signed/unsigned mismatch
+main.cpp(171): warning C4244: '-=': conversion from 'double' to 'int', possible loss of data
+main.cpp(172): warning C4244: '-=': conversion from 'double' to 'int', possible loss of data
+main.cpp(173): warning C4244: '-=': conversion from 'double' to 'int', possible loss of data
+main.cpp(193): warning C4018: '<': signed/unsigned mismatch
+main.cpp(199): warning C4018: '<': signed/unsigned mismatch
+main.cpp(202): warning C4018: '<': signed/unsigned mismatch
+main.cpp(207): warning C4018: '<': signed/unsigned mismatch
+main.cpp(208): warning C4018: '<': signed/unsigned mismatch
+main.cpp(319): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(336): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(357): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(398): warning C4018: '<': signed/unsigned mismatch
+main.cpp(416): warning C4018: '<': signed/unsigned mismatch
+main.cpp(709): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
+          with
+          [
+              _Ty=CircularBuffer<Moment *> *
+          ]
+main.cpp(713): warning C4068: unknown pragma
 c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a': unreferenced local variable
   c:\users\jverb\documents\git\unrealuwftesting\Vector.h(133): note: while compiling class template member function 'bool Vector<T>::resize(const unsigned int)'
           with
@@ -26,6 +38,6 @@ c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a':
           [
               T=Moment *
           ]
-  main.cpp(163): note: see reference to class template instantiation 'CircularBuffer<Moment *>' being compiled
+  main.cpp(147): note: see reference to class template instantiation 'CircularBuffer<Moment *>' being compiled
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.exe
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.pdb (Full PDB)
