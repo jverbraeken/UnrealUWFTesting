@@ -44,7 +44,7 @@ class Moment;
 unsigned int numGestures;
 vector<string> preGestureNames;
 vector<vector<vector<float>*>*> preGestureValues;
-vector<vector<unsigned int>> numPreCaptures;
+vector<vector<unsigned int>*> numPreCaptures;
 vector<vector<vector<Capture*>*>*> preCaptures;
 
 // for each dimension for each time a moment
@@ -105,7 +105,7 @@ long long getLongFromBuffer(char *buf, int offset) {
 
 	return result;
 }
-
+	
 
 
 
@@ -129,49 +129,54 @@ int d(float f1, float f2) {
 }
 
 bool executeDTW(const int gesture, const int dimension, const int offset) {
-	vector<vector<DTWEntry>> s;
-	for (int i = 0; i < numPreCaptures[gesture][dimension]; i++) {
-		s.push_back(vector<DTWEntry>());
-	}
-
-	s[0][0] = DTWEntry(0);
-	for (int i = 1; i < numPreCaptures[gesture][dimension]; i++) {
-		s[i][0] = DTWEntry(999999);
-	}
-	for (int i = 1; i < MOMENT_BUFFER_SIZE - offset; i++) {
-		s[0][i] = DTWEntry(999999);
-	}
-
-	for (int i = offset + 1; i < MOMENT_BUFFER_SIZE; i++) {
-		for (int j = 1; j < numPreCaptures[gesture][dimension]; j++) {
-			int cost = d((*momentBuffer)[dimension]->getElem(i)->getValue(), (*(*(preGestureValues[gesture]))[dimension])[j]);
-			DTWEntry* prev = &(s[i - 1][j]);
-			int index = 1;
-			if (s[i][j - 1].value < prev->value) {
-				prev = &(s[i][j - 1]);
-				index = 2;
-			}
-			if (s[i - 1][j - 1].value < prev->value) {
-				prev = &(s[i - 1][j - 1]);
-				index = 3;
-			}
-			s[i][j] = DTWEntry(cost + prev->value, prev, index);
+	vector<vector<DTWEntry*>*> s;
+	for (int i = 0; i < (*preGestureValues[gesture])[dimension]->size(); i++) {
+		s.push_back(new vector<DTWEntry*>());
+		for (int j = 0; j < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset; j++) {
+			s.back()->push_back(new DTWEntry(999999));
 		}
 	}
 
-	int i = MOMENT_BUFFER_SIZE - 1;
-	int j = numPreCaptures[gesture][dimension] - 1;
+	(*s[0])[0] = new DTWEntry(0);
+	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size(); i++) {
+		(*s[i])[0] = new DTWEntry(999999);
+	}
+	for (int i = 1; i < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset; i++) {
+		(*s[0])[i] = new DTWEntry(999999);
+	}
+
+	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size(); i++) {
+		for (int j = offset + 1; j < (*momentBuffer)[dimension]->getNumValuesInBuffer(); j++) {
+			int cost = d((*momentBuffer)[dimension]->getElem(j)->getValue(), (*(*preGestureValues[gesture])[dimension])[i]);
+			DTWEntry* prev = (*s[i - 1])[j];
+			int index = 1;
+			if ((*s[i])[j - 1]->value < prev->value) {
+				prev = (*s[i])[j - 1];
+				index = 2;
+			}
+			if ((*s[i - 1])[j - 1]->value < prev->value) {
+				prev = (*s[i - 1])[j - 1];
+				index = 3;
+			}
+			(*s[i])[j - offset] = new DTWEntry(cost + prev->value, prev, index);
+		}
+	}
+
+	int i = (*preGestureValues[gesture])[dimension]->size() - 1;
+	int j = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset - 1;
 	double targetI = i;
 	double targetJ = j;
-	double deltaTargetI = (double)i / (double)j;
-	double deltaTargetJ = (double)j / (double)i;
+	double x = i;
+	double y = j;
+	const double deltaTargetI = (double) 0.5 * sqrt(2);
+	const double deltaTargetJ = ((double)j / (double)i) * (0.5 * sqrt(2));
 	while (true) {
 		targetI -= deltaTargetI;
 		targetJ -= deltaTargetJ;
-		if (s[i][j].index == 1) { i -= deltaTargetI; }
-		if (s[i][j].index == 2) { j -= deltaTargetJ; }
-		if (s[i][j].index == 3) { i -= deltaTargetI; j -= deltaTargetJ; }
-		if (pow((targetI - deltaTargetI) / MOMENT_BUFFER_SIZE - 1, 2) + pow((targetJ - deltaTargetJ) / numPreCaptures[gesture][dimension] - 1, 2) >= DTW_MATCH_GESTURE_THRESHOLD) {
+		if ((*s[i])[j]->index == 1) { i--; x -= deltaTargetI; targetI += 0.5 * deltaTargetI; }
+		if ((*s[i])[j]->index == 2) { j--; j -= deltaTargetJ; targetJ += 0.5 * deltaTargetJ;  }
+		if ((*s[i])[j]->index == 3) { i--; j--; x -= deltaTargetI; y -= deltaTargetJ; }
+		if (abs((targetI - x) / ((*preGestureValues[gesture])[dimension]->size() - 1)) + abs((targetJ - y) / ((*momentBuffer)[dimension]->getNumValuesInBuffer() - 1)) >= DTW_MATCH_GESTURE_THRESHOLD) {
 			return false;
 		}
 		if (targetI <= 0) { // so targetJ is also lesser than or equal to 0
@@ -193,10 +198,10 @@ void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
 		for (int j = 1; j < 2; j++) {
 			// TODO this should be reversed to improve efficiency
-			for (int captureOffset = 0; captureOffset <= (int)captureBuffer[j]->size() - (int)numPreCaptures[i][j]; captureOffset++) {
+			for (int captureOffset = 0; captureOffset <= (int)captureBuffer[j]->size() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
 
-				vector<vector<int>> dtw(numPreCaptures[i][j] + 1, vector<int>(captureBuffer[j]->size() - captureOffset + 1));
-				for (int k = 1; k < numPreCaptures[i][j]; k++) {
+				vector<vector<int>> dtw((*numPreCaptures[i])[j] + 1, vector<int>(captureBuffer[j]->size() - captureOffset + 1));
+				for (int k = 1; k < (*numPreCaptures[i])[j]; k++) {
 					dtw[k][0] = 999999;
 				}
 				for (int k = 1; k < captureBuffer[j]->size() - captureOffset; k++) {
@@ -204,7 +209,7 @@ void checkCaptureBuffer() {
 				}
 				dtw[0][0] = 0;
 
-				for (int k = 0; k < numPreCaptures[i][j]; k++) {
+				for (int k = 0; k < (*numPreCaptures[i])[j]; k++) {
 					for (int l = 0; l < captureBuffer[j]->size() - captureOffset; l++) {
 						int cost = -1;
 						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*captureBuffer[j])[l + captureOffset]).getState()) {
@@ -239,7 +244,7 @@ void checkCaptureBuffer() {
 				}
 				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
 				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
-				if (dtw[numPreCaptures[i][j] - 1][captureBuffer[j]->size() - captureOffset - 1] / (captureBuffer[j]->size() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
+				if (dtw[(*numPreCaptures[i])[j] - 1][captureBuffer[j]->size() - captureOffset - 1] / (captureBuffer[j]->size() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
 					if (executeDTW(i, j, captureOffset)) {
 						cout << "Gesture matched!!!" << endl;
 						for (int i = 0; i < 6; i++) {
@@ -369,10 +374,6 @@ void executeUWF(Moment** moment, bool evaluate = true) {
 			}
 		}
 		(*momentBuffer)[i]->push_back(moment[i]);
-		(*momentBuffer)[i]->push_back(moment[i]);
-		(*momentBuffer)[i]->push_back(moment[i]);
-		(*momentBuffer)[i]->push_back(moment[i]);
-		(*momentBuffer)[i]->push_back(moment[i]);
 	}
 }
 
@@ -404,16 +405,16 @@ void useUWF() {
 		in >> _gestureName;
 		//numDimensions.push_back(_numDimensions);
 		preGestureNames.push_back(_gestureName);
-		numPreCaptures.push_back(vector<unsigned int>());
+		numPreCaptures.push_back(new vector<unsigned int>());
 		preCaptures.push_back(new vector<vector<Capture*>*>());
 		for (int j = 0; j < 6; j++) {
 			string dimension_text;
 			unsigned int _numCaptures;
 			in >> dimension_text;
 			in >> _numCaptures;
-			numPreCaptures.back().push_back(_numCaptures);
+			numPreCaptures.back()->push_back(_numCaptures);
 			preCaptures.back()->push_back(new vector<Capture*>());
-			for (int k = 0; k < numPreCaptures.back().back(); k++) {
+			for (int k = 0; k < numPreCaptures.back()->back(); k++) {
 				string capture_text;
 				long start_time;
 				long end_time;
@@ -525,6 +526,10 @@ void useGRT() {
 	//Load each of the time series
 	for (UINT x = 0; x < numGestures; x++) {
 		preGestureValues.push_back(new vector<vector<float>*>());
+		for (int i = 0; i < 6; i++) {
+			preGestureValues.back()->push_back(new vector<float>());
+		}
+		numPreCaptures.push_back(new vector<unsigned int>());
 		UINT classLabel = 0;
 		UINT timeSeriesLength = 0;
 
@@ -557,18 +562,21 @@ void useGRT() {
 		long long tmpTimer = 0;
 
 		for (UINT i = 0; i < timeSeriesLength; i++) {
-			preGestureValues.back()->push_back(new vector<float>());
 			Moment* moments[6];
 			for (UINT j = 0; j < 6; j++) {
 				float y;
 				in >> y;
-				preGestureValues.back()->back()->push_back(y);
+				(*preGestureValues.back())[j]->push_back(y);
 				moments[j] = new Moment(y, tmpTimer);
 				tmpTimer += 50;
 			}
 			executeUWF(moments, false);
 		}
 		preCaptures.push_back(&captureBuffer);
+		for (int i = 0; i < 6; i++) {
+			numPreCaptures.back()->push_back(captureBuffer[i]->size());
+			captureBuffer[i]->clear();
+		}
 		for (int i = 0; i < 6; i++) {
 			(*momentBuffer)[i]->reset();
 		}
