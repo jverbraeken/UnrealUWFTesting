@@ -45,17 +45,19 @@ unsigned int numGestures;
 vector<string> preGestureNames;
 vector<vector<vector<float>*>*> preGestureValues;
 vector<vector<unsigned int>*> numPreCaptures;
-vector<vector<vector<Capture*>*>*> preCaptures;
+vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that we make it a CircularBuffer is because we have to convert a CircularBuffer to a vector otherwise
 
 // for each dimension for each time a moment
 vector<CircularBuffer<Moment *> *> * momentBuffer;
 vector<int> state;
 // for each dimension for each time a capture
-vector<vector<Capture*>*> captureBuffer;
+vector<CircularBuffer<Capture*>*> captureBuffer;
 float cooldown_value = 0.0f;
 int cooldown_time = 0;
 int cooldown_num = 0;
 bool isFirstSample = true;
+
+int maxPreCaptures = 0;
 
 
 
@@ -198,20 +200,20 @@ void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
 		for (int j = 1; j < 2; j++) {
 
-			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>(captureBuffer[j]->size() + 1));
+			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>(captureBuffer[j]->getNumValuesInBuffer() + 1));
 			for (int k = 1; k < (*numPreCaptures[i])[j]; k++) {
 				dtwTemplate[k][0] = 999999;
 			}
-			for (int k = 1; k < captureBuffer[j]->size(); k++) {
+			for (int k = 1; k < captureBuffer[j]->getNumValuesInBuffer(); k++) {
 				dtwTemplate[0][k] = 999999;
 			}
 			dtwTemplate[0][0] = 0;
 
 			// TODO this should be reversed to improve efficiency
-			for (int captureOffset = 0; captureOffset <= (int)captureBuffer[j]->size() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
+			for (int captureOffset = 0; captureOffset <= (int)captureBuffer[j]->getNumValuesInBuffer() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
 				vector<vector<int>> dtw = dtwTemplate; // copying more efficient than constructing a new one
 				for (int k = 0; k < (*numPreCaptures[i])[j]; k++) {
-					for (int l = 0; l < captureBuffer[j]->size() - captureOffset; l++) {
+					for (int l = 0; l < captureBuffer[j]->getNumValuesInBuffer() - captureOffset; l++) {
 						int cost = -1;
 						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*captureBuffer[j])[l + captureOffset]).getState()) {
 							cost = 0;
@@ -245,7 +247,7 @@ void checkCaptureBuffer() {
 				}
 				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
 				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
-				if (dtw[(*numPreCaptures[i])[j] - 1][captureBuffer[j]->size() - captureOffset - 1] / (captureBuffer[j]->size() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
+				if (dtw[(*numPreCaptures[i])[j] - 1][captureBuffer[j]->getNumValuesInBuffer() - captureOffset - 1] / (captureBuffer[j]->getNumValuesInBuffer() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
 					if (executeDTW(i, j, captureOffset)) {
 						cout << "Gesture matched!!!" << endl;
 						for (int i = 0; i < 6; i++) {
@@ -260,8 +262,8 @@ void checkCaptureBuffer() {
 
 void goToRising(int i, Moment *moment, bool evaluate) {
 	cout << "State is RISING" << endl;
-	if (captureBuffer[i]->size() > 0) {
-		captureBuffer[i]->back()->end((*momentBuffer)[i]->getBack()->getTime(),
+	if (captureBuffer[i]->getNumValuesInBuffer() > 0) {
+		captureBuffer[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
 			(*momentBuffer)[i]->getElem((*momentBuffer)[i]->getNumValuesInBuffer()
 				- cooldown_num)->getValue());
 	}
@@ -279,8 +281,8 @@ void goToRising(int i, Moment *moment, bool evaluate) {
 
 void goToStable(int i, Moment *moment, bool evaluate) {
 	cout << "State is STABLE" << endl;
-	if (captureBuffer[i]->size() > 0) {
-		captureBuffer[i]->back()->end((*momentBuffer)[i]->getBack()->getTime(),
+	if (captureBuffer[i]->getNumValuesInBuffer() > 0) {
+		captureBuffer[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
 			(*((*momentBuffer)[i]))[(*momentBuffer)[i]->getNumValuesInBuffer()
 			- cooldown_num]->getValue());
 	}
@@ -298,8 +300,8 @@ void goToStable(int i, Moment *moment, bool evaluate) {
 
 void goToFalling(int i, Moment *moment, bool evaluate) {
 	cout << "State is FALLING" << endl;
-	if (captureBuffer[i]->size() > 0) {
-		captureBuffer[i]->back()->end((*momentBuffer)[i]->getBack()->getTime(),
+	if (captureBuffer[i]->getNumValuesInBuffer() > 0) {
+		captureBuffer[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
 			(*((*momentBuffer)[i]))[(*momentBuffer)[i]->getNumValuesInBuffer()
 			- cooldown_num]->getValue());
 	}
@@ -404,17 +406,16 @@ void useUWF() {
 		in >> gesture_text;
 		in >> _numDimensions;
 		in >> _gestureName;
-		//numDimensions.push_back(_numDimensions);
 		preGestureNames.push_back(_gestureName);
 		numPreCaptures.push_back(new vector<unsigned int>());
-		preCaptures.push_back(new vector<vector<Capture*>*>());
+		preCaptures.push_back(new vector<CircularBuffer<Capture*>*>());
 		for (int j = 0; j < 6; j++) {
 			string dimension_text;
-			unsigned int _numCaptures;
+			unsigned int numCaptures;
 			in >> dimension_text;
-			in >> _numCaptures;
-			numPreCaptures.back()->push_back(_numCaptures);
-			preCaptures.back()->push_back(new vector<Capture*>());
+			in >> numCaptures;
+			numPreCaptures.back()->push_back(numCaptures);
+			preCaptures.back()->push_back(new CircularBuffer<Capture*>(numCaptures));
 			for (int k = 0; k < numPreCaptures.back()->back(); k++) {
 				string capture_text;
 				long start_time;
@@ -575,7 +576,7 @@ void useGRT() {
 		}
 		preCaptures.push_back(&captureBuffer);
 		for (int i = 0; i < 6; i++) {
-			numPreCaptures.back()->push_back(captureBuffer[i]->size());
+			numPreCaptures.back()->push_back(captureBuffer[i]->getNumValuesInBuffer());
 			captureBuffer[i]->clear();
 		}
 		for (int i = 0; i < 6; i++) {
@@ -611,9 +612,16 @@ int main() {
 	for (int i = 0; i < 6; i++) {
 		state.push_back(STATE_STABLE);
 	}
+
+	for (int i = 0; i < numPreCaptures.size(); i++) {
+		for (int j = 0; j < numPreCaptures[i]->size(); j++) {
+			maxPreCaptures = max(maxPreCaptures, (*numPreCaptures[i])[j]);
+		}
+	}
+
 	// for each dimension for each time a capture
 	for (int i = 0; i < 6; i++) {
-		captureBuffer.push_back(new vector<Capture*>());
+		captureBuffer.push_back(new CircularBuffer<Capture*>(maxPreCaptures));
 	}
 
 	useGRT();

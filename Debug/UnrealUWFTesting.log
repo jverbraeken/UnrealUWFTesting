@@ -1,44 +1,47 @@
 ﻿  main.cpp
-main.cpp(128): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
-main.cpp(133): warning C4018: '<': signed/unsigned mismatch
+main.cpp(130): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
 main.cpp(135): warning C4018: '<': signed/unsigned mismatch
-main.cpp(141): warning C4018: '<': signed/unsigned mismatch
-main.cpp(144): warning C4018: '<': signed/unsigned mismatch
-main.cpp(148): warning C4018: '<': signed/unsigned mismatch
-main.cpp(149): warning C4018: '<': signed/unsigned mismatch
-main.cpp(177): warning C4244: '-=': conversion from 'const double' to 'int', possible loss of data
-main.cpp(198): warning C4018: '<': signed/unsigned mismatch
+main.cpp(137): warning C4018: '<': signed/unsigned mismatch
+main.cpp(143): warning C4018: '<': signed/unsigned mismatch
+main.cpp(146): warning C4018: '<': signed/unsigned mismatch
+main.cpp(150): warning C4018: '<': signed/unsigned mismatch
+main.cpp(151): warning C4018: '<': signed/unsigned mismatch
+main.cpp(179): warning C4244: '-=': conversion from 'const double' to 'int', possible loss of data
+main.cpp(200): warning C4018: '<': signed/unsigned mismatch
 main.cpp(204): warning C4018: '<': signed/unsigned mismatch
 main.cpp(207): warning C4018: '<': signed/unsigned mismatch
-main.cpp(212): warning C4018: '<': signed/unsigned mismatch
-main.cpp(213): warning C4018: '<': signed/unsigned mismatch
-main.cpp(324): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(341): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(362): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(399): warning C4018: '<': signed/unsigned mismatch
-main.cpp(417): warning C4018: '<': signed/unsigned mismatch
-main.cpp(717): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
+main.cpp(215): warning C4018: '<': signed/unsigned mismatch
+main.cpp(216): warning C4018: '<': signed/unsigned mismatch
+main.cpp(327): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(344): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(365): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(402): warning C4018: '<': signed/unsigned mismatch
+main.cpp(419): warning C4018: '<': signed/unsigned mismatch
+main.cpp(616): warning C4018: '<': signed/unsigned mismatch
+main.cpp(617): warning C4018: '<': signed/unsigned mismatch
+main.cpp(618): warning C4018: '>': signed/unsigned mismatch
+main.cpp(726): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
           with
           [
               _Ty=CircularBuffer<Moment *> *
           ]
-main.cpp(721): warning C4068: unknown pragma
+main.cpp(730): warning C4068: unknown pragma
 c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a': unreferenced local variable
   c:\users\jverb\documents\git\unrealuwftesting\Vector.h(133): note: while compiling class template member function 'bool Vector<T>::resize(const unsigned int)'
           with
           [
-              T=Moment *
+              T=Capture *
           ]
   c:\users\jverb\documents\git\unrealuwftesting\Vector.h(162): note: see reference to function template instantiation 'bool Vector<T>::resize(const unsigned int)' being compiled
           with
           [
-              T=Moment *
+              T=Capture *
           ]
   c:\users\jverb\documents\git\unrealuwftesting\CircularBuffer.h.h(364): note: see reference to class template instantiation 'Vector<T>' being compiled
           with
           [
-              T=Moment *
+              T=Capture *
           ]
-  main.cpp(135): note: see reference to class template instantiation 'CircularBuffer<Moment *>' being compiled
+  main.cpp(203): note: see reference to class template instantiation 'CircularBuffer<Capture *>' being compiled
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.exe
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.pdb (Full PDB)
