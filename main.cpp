@@ -197,18 +197,19 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
 		for (int j = 1; j < 2; j++) {
+
+			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>(captureBuffer[j]->size() + 1));
+			for (int k = 1; k < (*numPreCaptures[i])[j]; k++) {
+				dtwTemplate[k][0] = 999999;
+			}
+			for (int k = 1; k < captureBuffer[j]->size(); k++) {
+				dtwTemplate[0][k] = 999999;
+			}
+			dtwTemplate[0][0] = 0;
+
 			// TODO this should be reversed to improve efficiency
 			for (int captureOffset = 0; captureOffset <= (int)captureBuffer[j]->size() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
-
-				vector<vector<int>> dtw((*numPreCaptures[i])[j] + 1, vector<int>(captureBuffer[j]->size() - captureOffset + 1));
-				for (int k = 1; k < (*numPreCaptures[i])[j]; k++) {
-					dtw[k][0] = 999999;
-				}
-				for (int k = 1; k < captureBuffer[j]->size() - captureOffset; k++) {
-					dtw[0][k] = 999999;
-				}
-				dtw[0][0] = 0;
-
+				vector<vector<int>> dtw = dtwTemplate; // copying more efficient than constructing a new one
 				for (int k = 0; k < (*numPreCaptures[i])[j]; k++) {
 					for (int l = 0; l < captureBuffer[j]->size() - captureOffset; l++) {
 						int cost = -1;
