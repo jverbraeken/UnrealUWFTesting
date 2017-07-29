@@ -51,7 +51,7 @@ vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that 
 vector<CircularBuffer<Moment *> *> * momentBuffer;
 vector<int> state;
 // for each dimension for each time a capture
-vector<CircularBuffer<Capture*>*> captureBuffer;
+vector<CircularBuffer<Capture*>*>* captureBuffer;
 float cooldown_value = 0.0f;
 int cooldown_time = 0;
 int cooldown_num = 0;
@@ -132,24 +132,24 @@ int d(float f1, float f2) {
 
 bool executeDTW(const int gesture, const int dimension, const int offset) {
 	vector<vector<DTWEntry*>*> s;
-	for (int i = 0; i < (*preGestureValues[gesture])[dimension]->size(); i++) {
+	for (int i = 0; i < (*preGestureValues[gesture])[dimension]->size() + 1; i++) {
 		s.push_back(new vector<DTWEntry*>());
-		for (int j = 0; j < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset; j++) {
+		for (int j = 0; j < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset + 1; j++) {
 			s.back()->push_back(new DTWEntry(999999));
 		}
 	}
 
 	(*s[0])[0] = new DTWEntry(0);
-	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size(); i++) {
+	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size() + 1; i++) {
 		(*s[i])[0] = new DTWEntry(999999);
 	}
-	for (int i = 1; i < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset; i++) {
+	for (int i = 1; i < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset + 1; i++) {
 		(*s[0])[i] = new DTWEntry(999999);
 	}
 
-	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size(); i++) {
-		for (int j = offset + 1; j < (*momentBuffer)[dimension]->getNumValuesInBuffer(); j++) {
-			int cost = d((*momentBuffer)[dimension]->getElem(j)->getValue(), (*(*preGestureValues[gesture])[dimension])[i]);
+	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size() + 1; i++) {
+		for (int j = 1; j < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset + 1; j++) {
+			int cost = d((*momentBuffer)[dimension]->getElem(j + offset - 1)->getValue(), (*(*preGestureValues[gesture])[dimension])[i - 1]);
 			DTWEntry* prev = (*s[i - 1])[j];
 			int index = 1;
 			if ((*s[i])[j - 1]->value < prev->value) {
@@ -160,20 +160,39 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 				prev = (*s[i - 1])[j - 1];
 				index = 3;
 			}
-			(*s[i])[j - offset] = new DTWEntry(cost + prev->value, prev, index);
+			(*s[i])[j] = new DTWEntry(cost + prev->value, prev, index);
 		}
 	}
 
-	int i = (*preGestureValues[gesture])[dimension]->size() - 1;
+	double right = (*preGestureValues[gesture])[dimension]->size() - 1;
+	double bottom = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset - 1;
+	int rightSquared = right * right;
+	int bottomSquared = bottom * bottom;
+	double denominator = sqrt(rightSquared + bottomSquared);
+	int i = right;
+	int j = bottom;
+	/*int i = (*preGestureValues[gesture])[dimension]->size() - 1;
 	int j = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset - 1;
 	double targetI = i;
 	double targetJ = j;
 	double x = i;
 	double y = j;
 	const double deltaTargetI = (double) 0.5 * sqrt(2);
-	const double deltaTargetJ = ((double)j / (double)i) * (0.5 * sqrt(2));
+	const double deltaTargetJ = ((double)j / (double)i) * (0.5 * sqrt(2));*/
 	while (true) {
-		targetI -= deltaTargetI;
+		if ((*s[i])[j]->index == 1) { i--; }
+		if ((*s[i])[j]->index == 2) { j--; }
+		if ((*s[i])[j]->index == 3) { i--; j--; }
+		double distance = abs(bottom * i - right * j) / denominator;
+		if (distance > 0.1 * right)
+		{
+			return false;
+		}
+		if (i == 0 || j == 0)
+		{
+			break;
+		}
+		/*targetI -= deltaTargetI;
 		targetJ -= deltaTargetJ;
 		if ((*s[i])[j]->index == 1) { i--; x -= deltaTargetI; targetI += 0.5 * deltaTargetI; }
 		if ((*s[i])[j]->index == 2) { j--; j -= deltaTargetJ; targetJ += 0.5 * deltaTargetJ;  }
@@ -183,7 +202,7 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		}
 		if (targetI <= 0) { // so targetJ is also lesser than or equal to 0
 			break;
-		}
+		}*/
 	}
 	return true;
 }
@@ -200,45 +219,45 @@ void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
 		for (int j = 1; j < 2; j++) {
 
-			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>(captureBuffer[j]->getNumValuesInBuffer() + 1));
+			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>((*captureBuffer)[j]->getNumValuesInBuffer() + 1));
 			for (int k = 1; k < (*numPreCaptures[i])[j]; k++) {
 				dtwTemplate[k][0] = 999999;
 			}
-			for (int k = 1; k < captureBuffer[j]->getNumValuesInBuffer(); k++) {
+			for (int k = 1; k < (*captureBuffer)[j]->getNumValuesInBuffer(); k++) {
 				dtwTemplate[0][k] = 999999;
 			}
 			dtwTemplate[0][0] = 0;
 
 			// TODO this should be reversed to improve efficiency
-			for (int captureOffset = 0; captureOffset <= (int)captureBuffer[j]->getNumValuesInBuffer() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
+			for (int captureOffset = 0; captureOffset <= (int)(*captureBuffer)[j]->getNumValuesInBuffer() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
 				vector<vector<int>> dtw = dtwTemplate; // copying more efficient than constructing a new one
 				for (int k = 0; k < (*numPreCaptures[i])[j]; k++) {
-					for (int l = 0; l < captureBuffer[j]->getNumValuesInBuffer() - captureOffset; l++) {
+					for (int l = 0; l < (*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset; l++) {
 						int cost = -1;
-						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*captureBuffer[j])[l + captureOffset]).getState()) {
+						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*(*captureBuffer)[j])[l + captureOffset]).getState()) {
 							cost = 0;
 						}
 						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_FALLING) {
-							if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_STABLE) {
+							if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_STABLE) {
 								cost = 2;
 							}
-							else if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_RISING) {
+							else if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_RISING) {
 								cost = 5;
 							}
 						}
 						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_STABLE) {
-							if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_FALLING) {
+							if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_FALLING) {
 								cost = 2;
 							}
-							else if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_RISING) {
+							else if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_RISING) {
 								cost = 2;
 							}
 						}
 						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_RISING) {
-							if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_FALLING) {
+							if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_FALLING) {
 								cost = 5;
 							}
-							else if ((*(*captureBuffer[j])[l + captureOffset]).getState() == STATE_STABLE) {
+							else if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_STABLE) {
 								cost = 2;
 							}
 						}
@@ -247,13 +266,15 @@ void checkCaptureBuffer() {
 				}
 				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
 				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
-				if (dtw[(*numPreCaptures[i])[j] - 1][captureBuffer[j]->getNumValuesInBuffer() - captureOffset - 1] / (captureBuffer[j]->getNumValuesInBuffer() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
+				if (double(dtw[(*numPreCaptures[i])[j]][(*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset]) / double((*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
+					cout << "UWF matched......." << endl;
 					if (executeDTW(i, j, captureOffset)) {
 						cout << "Gesture matched!!!" << endl;
 						for (int i = 0; i < 6; i++) {
-							captureBuffer[i]->clear();
+							(*captureBuffer)[i]->reset();
 						}
 					}
+					break;
 				}
 			}
 		}
@@ -262,12 +283,12 @@ void checkCaptureBuffer() {
 
 void goToRising(int i, Moment *moment, bool evaluate) {
 	cout << "State is RISING" << endl;
-	if (captureBuffer[i]->getNumValuesInBuffer() > 0) {
-		captureBuffer[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
+	if ((*captureBuffer)[i]->getNumValuesInBuffer() > 0) {
+		(*captureBuffer)[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
 			(*momentBuffer)[i]->getElem((*momentBuffer)[i]->getNumValuesInBuffer()
 				- cooldown_num)->getValue());
 	}
-	captureBuffer[i]->push_back(new Capture(moment->getTime(),
+	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
 		STATE_RISING,
 		moment->getValue()));
 	state[i] = STATE_RISING;
@@ -281,12 +302,12 @@ void goToRising(int i, Moment *moment, bool evaluate) {
 
 void goToStable(int i, Moment *moment, bool evaluate) {
 	cout << "State is STABLE" << endl;
-	if (captureBuffer[i]->getNumValuesInBuffer() > 0) {
-		captureBuffer[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
+	if ((*captureBuffer)[i]->getNumValuesInBuffer() > 0) {
+		(*captureBuffer)[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
 			(*((*momentBuffer)[i]))[(*momentBuffer)[i]->getNumValuesInBuffer()
 			- cooldown_num]->getValue());
 	}
-	captureBuffer[i]->push_back(new Capture(moment->getTime(),
+	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
 		STATE_STABLE,
 		moment->getValue()));
 	state[i] = STATE_STABLE;
@@ -300,12 +321,12 @@ void goToStable(int i, Moment *moment, bool evaluate) {
 
 void goToFalling(int i, Moment *moment, bool evaluate) {
 	cout << "State is FALLING" << endl;
-	if (captureBuffer[i]->getNumValuesInBuffer() > 0) {
-		captureBuffer[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
+	if ((*captureBuffer)[i]->getNumValuesInBuffer() > 0) {
+		(*captureBuffer)[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
 			(*((*momentBuffer)[i]))[(*momentBuffer)[i]->getNumValuesInBuffer()
 			- cooldown_num]->getValue());
 	}
-	captureBuffer[i]->push_back(new Capture(moment->getTime(),
+	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
 		STATE_FALLING,
 		moment->getValue()));
 	state[i] = STATE_FALLING;
@@ -441,7 +462,7 @@ void useGRT() {
 		cout << "File cannot be opened" << endl;
 	}
 
-	std::string word;
+	string word;
 
 	//Check to make sure this is a file with the Training File Format
 	in >> word;
@@ -574,10 +595,15 @@ void useGRT() {
 			}
 			executeUWF(moments, false);
 		}
-		preCaptures.push_back(&captureBuffer);
+		preCaptures.push_back(captureBuffer);
 		for (int i = 0; i < 6; i++) {
-			numPreCaptures.back()->push_back(captureBuffer[i]->getNumValuesInBuffer());
-			captureBuffer[i]->clear();
+			numPreCaptures.back()->push_back((*captureBuffer)[i]->getNumValuesInBuffer());
+			(*captureBuffer)[i]->reset();
+		}
+
+		captureBuffer = new vector<CircularBuffer<Capture*>*>();
+		for (int i = 0; i < 6; i++) {
+			captureBuffer->push_back(new CircularBuffer<Capture*>(10));
 		}
 		for (int i = 0; i < 6; i++) {
 			(*momentBuffer)[i]->reset();
@@ -613,15 +639,15 @@ int main() {
 		state.push_back(STATE_STABLE);
 	}
 
-	for (int i = 0; i < numPreCaptures.size(); i++) {
+	/*for (int i = 0; i < numPreCaptures.size(); i++) {
 		for (int j = 0; j < numPreCaptures[i]->size(); j++) {
 			maxPreCaptures = max(maxPreCaptures, (*numPreCaptures[i])[j]);
 		}
-	}
+	}*/
 
-	// for each dimension for each time a capture
+	captureBuffer = new vector<CircularBuffer<Capture*>*>();
 	for (int i = 0; i < 6; i++) {
-		captureBuffer.push_back(new CircularBuffer<Capture*>(maxPreCaptures));
+		captureBuffer->push_back(new CircularBuffer<Capture*>(10));
 	}
 
 	useGRT();
