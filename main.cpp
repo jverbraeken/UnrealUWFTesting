@@ -56,6 +56,7 @@ float cooldown_value = 0.0f;
 int cooldown_time = 0;
 int cooldown_num = 0;
 bool isFirstSample = true;
+int momentCounter = 0;
 
 int maxPreCaptures = 0;
 
@@ -107,7 +108,7 @@ long long getLongFromBuffer(char *buf, int offset) {
 
 	return result;
 }
-	
+
 
 
 
@@ -231,33 +232,42 @@ void checkCaptureBuffer() {
 			// TODO this should be reversed to improve efficiency
 			for (int captureOffset = 0; captureOffset <= (int)(*captureBuffer)[j]->getNumValuesInBuffer() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
 				vector<vector<int>> dtw = dtwTemplate; // copying more efficient than constructing a new one
+				int momentOffset = -1;
 				for (int k = 0; k < (*numPreCaptures[i])[j]; k++) {
 					for (int l = 0; l < (*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset; l++) {
+						if ((*(*captureBuffer)[j])[l + captureOffset]->getMomentCounterAtStart() < momentCounter - MOMENT_BUFFER_SIZE)
+						{
+							continue;
+						}
+						if (momentOffset == -1)
+						{
+							momentOffset = momentCounter - (*(*captureBuffer)[j])[l + captureOffset]->getMomentCounterAtStart();
+						}
 						int cost = -1;
-						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*(*captureBuffer)[j])[l + captureOffset]).getState()) {
+						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*captureBuffer)[j])[l + captureOffset]->getState()) {
 							cost = 0;
 						}
 						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_FALLING) {
-							if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_STABLE) {
+							if ((*(*captureBuffer)[j])[l + captureOffset]->getState() == STATE_STABLE) {
 								cost = 2;
 							}
-							else if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_RISING) {
+							else if ((*(*captureBuffer)[j])[l + captureOffset]->getState() == STATE_RISING) {
 								cost = 5;
 							}
 						}
 						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_STABLE) {
-							if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_FALLING) {
+							if ((*(*captureBuffer)[j])[l + captureOffset]->getState() == STATE_FALLING) {
 								cost = 2;
 							}
-							else if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_RISING) {
+							else if ((*(*captureBuffer)[j])[l + captureOffset]->getState() == STATE_RISING) {
 								cost = 2;
 							}
 						}
 						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_RISING) {
-							if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_FALLING) {
+							if ((*(*captureBuffer)[j])[l + captureOffset]->getState() == STATE_FALLING) {
 								cost = 5;
 							}
-							else if ((*(*(*captureBuffer)[j])[l + captureOffset]).getState() == STATE_STABLE) {
+							else if ((*(*captureBuffer)[j])[l + captureOffset]->getState() == STATE_STABLE) {
 								cost = 2;
 							}
 						}
@@ -268,7 +278,7 @@ void checkCaptureBuffer() {
 				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
 				if (double(dtw[(*numPreCaptures[i])[j]][(*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset]) / double((*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
 					cout << "UWF matched.......   " << endl;
-					if (executeDTW(i, j, captureOffset)) {
+					if (executeDTW(i, j, momentOffset)) {
 						cout << "Gesture matched!!!" << endl;
 						for (int i = 0; i < 6; i++) {
 							(*captureBuffer)[i]->reset();
@@ -290,7 +300,8 @@ void goToRising(int i, Moment *moment, bool evaluate) {
 	}
 	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
 		STATE_RISING,
-		moment->getValue()));
+		moment->getValue(),
+		momentCounter));
 	state[i] = STATE_RISING;
 	cooldown_value = 0;
 	cooldown_time = 0;
@@ -309,7 +320,8 @@ void goToStable(int i, Moment *moment, bool evaluate) {
 	}
 	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
 		STATE_STABLE,
-		moment->getValue()));
+		moment->getValue(),
+		momentCounter));
 	state[i] = STATE_STABLE;
 	cooldown_value = 0;
 	cooldown_time = 0;
@@ -328,7 +340,8 @@ void goToFalling(int i, Moment *moment, bool evaluate) {
 	}
 	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
 		STATE_FALLING,
-		moment->getValue()));
+		moment->getValue(),
+		momentCounter));
 	state[i] = STATE_FALLING;
 	cooldown_value = 0;
 	cooldown_time = 0;
@@ -445,7 +458,7 @@ void useUWF() {
 				float end_value;
 				unsigned char state;
 				in >> capture_text >> start_time >> end_time >> start_value >> end_value >> state;
-				preCaptures.back()->back()->push_back(new Capture(start_time, end_time, start_value, end_value, state));
+				preCaptures.back()->back()->push_back(new Capture(start_time, end_time, start_value, end_value, state, momentCounter));
 			}
 		}
 	}
@@ -629,7 +642,7 @@ void useGRT() {
 
 int main() {
 	cout << "UWF testing" << endl;
-	
+
 	momentBuffer = new vector<CircularBuffer<Moment*>*>();
 	// for each dimension for each time a moment
 	for (int i = 0; i < 6; i++) {
@@ -724,6 +737,8 @@ int main() {
 		float ytouch = getFloatFromBuffer(buf, 44);
 		unsigned char touch_state = getByteFromBuffer(buf, 48);
 		long long touch_timestamp = getLongFromBuffer(buf, 49);
+
+		momentCounter++;
 
 		Moment* moment[6];
 		moment[0] = new Moment(xrot, rot_timestamp);

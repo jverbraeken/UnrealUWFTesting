@@ -1,31 +1,31 @@
 ﻿  main.cpp
-main.cpp(130): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
-main.cpp(135): warning C4018: '<': signed/unsigned mismatch
-main.cpp(137): warning C4018: '<': signed/unsigned mismatch
-main.cpp(143): warning C4018: '<': signed/unsigned mismatch
-main.cpp(146): warning C4018: '<': signed/unsigned mismatch
-main.cpp(150): warning C4018: '<': signed/unsigned mismatch
+main.cpp(131): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
+main.cpp(136): warning C4018: '<': signed/unsigned mismatch
+main.cpp(138): warning C4018: '<': signed/unsigned mismatch
+main.cpp(144): warning C4018: '<': signed/unsigned mismatch
+main.cpp(147): warning C4018: '<': signed/unsigned mismatch
 main.cpp(151): warning C4018: '<': signed/unsigned mismatch
-main.cpp(169): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(152): warning C4018: '<': signed/unsigned mismatch
 main.cpp(170): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(172): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(171): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
 main.cpp(173): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(219): warning C4018: '<': signed/unsigned mismatch
-main.cpp(223): warning C4018: '<': signed/unsigned mismatch
-main.cpp(226): warning C4018: '<': signed/unsigned mismatch
-main.cpp(234): warning C4018: '<': signed/unsigned mismatch
-main.cpp(235): warning C4018: '<': signed/unsigned mismatch
-main.cpp(348): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(365): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(386): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(423): warning C4018: '<': signed/unsigned mismatch
-main.cpp(440): warning C4018: '<': signed/unsigned mismatch
-main.cpp(752): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
+main.cpp(174): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(220): warning C4018: '<': signed/unsigned mismatch
+main.cpp(224): warning C4018: '<': signed/unsigned mismatch
+main.cpp(227): warning C4018: '<': signed/unsigned mismatch
+main.cpp(236): warning C4018: '<': signed/unsigned mismatch
+main.cpp(237): warning C4018: '<': signed/unsigned mismatch
+main.cpp(361): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(378): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(399): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(436): warning C4018: '<': signed/unsigned mismatch
+main.cpp(453): warning C4018: '<': signed/unsigned mismatch
+main.cpp(767): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
           with
           [
               _Ty=CircularBuffer<Moment *> *
           ]
-main.cpp(756): warning C4068: unknown pragma
+main.cpp(771): warning C4068: unknown pragma
 c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a': unreferenced local variable
   c:\users\jverb\documents\git\unrealuwftesting\Vector.h(133): note: while compiling class template member function 'bool Vector<T>::resize(const unsigned int)'
           with
@@ -42,6 +42,6 @@ c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a':
           [
               T=Capture *
           ]
-  main.cpp(222): note: see reference to class template instantiation 'CircularBuffer<Capture *>' being compiled
+  main.cpp(223): note: see reference to class template instantiation 'CircularBuffer<Capture *>' being compiled
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.exe
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.pdb (Full PDB)
