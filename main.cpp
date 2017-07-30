@@ -184,7 +184,7 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		if ((*s[i])[j]->index == 2) { j--; }
 		if ((*s[i])[j]->index == 3) { i--; j--; }
 		double distance = abs(bottom * i - right * j) / denominator;
-		if (distance > 0.1 * right)
+		if (distance > 0.5 * right)
 		{
 			return false;
 		}
@@ -267,14 +267,14 @@ void checkCaptureBuffer() {
 				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
 				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
 				if (double(dtw[(*numPreCaptures[i])[j]][(*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset]) / double((*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
-					cout << "UWF matched......." << endl;
+					cout << "UWF matched.......   " << endl;
 					if (executeDTW(i, j, captureOffset)) {
 						cout << "Gesture matched!!!" << endl;
 						for (int i = 0; i < 6; i++) {
 							(*captureBuffer)[i]->reset();
 						}
+						break;
 					}
-					break;
 				}
 			}
 		}
