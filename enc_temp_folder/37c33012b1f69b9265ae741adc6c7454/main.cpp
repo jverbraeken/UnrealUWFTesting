@@ -132,30 +132,24 @@ int d(float f1, float f2) {
 }
 
 bool executeDTW(const int gesture, const int dimension, const int offset) {
-	double right = (*preGestureValues[gesture])[dimension]->size();
-	double bottom = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset;
-	/////// SHOULD be bottom / 2!!!
-	int window = int(right / 2);
-
 	vector<vector<DTWEntry*>*> s;
-	for (int i = 0; i < right + 1; i++) {
+	for (int i = 0; i < (*preGestureValues[gesture])[dimension]->size() + 1; i++) {
 		s.push_back(new vector<DTWEntry*>());
-		for (int j = 0; j < bottom + 1; j++) {
+		for (int j = 0; j < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset + 1; j++) {
 			s.back()->push_back(new DTWEntry(999999));
 		}
 	}
 
-	for (int i = 0; i < right + 1; i++)
-	{
-		for (int j = 0; j < bottom + 1; j++)
-		{
-			(*s[i])[j] = new DTWEntry(999999);
-		}
-	}
 	(*s[0])[0] = new DTWEntry(0);
+	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size() + 1; i++) {
+		(*s[i])[0] = new DTWEntry(999999);
+	}
+	for (int i = 1; i < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset + 1; i++) {
+		(*s[0])[i] = new DTWEntry(999999);
+	}
 
-	for (int i = 1; i < right + 1; i++) {
-		for (int j = max(1, i - window); j < min(bottom, i + window) + 1; j++) {
+	for (int i = 1; i < (*preGestureValues[gesture])[dimension]->size() + 1; i++) {
+		for (int j = 1; j < (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset + 1; j++) {
 			int cost = d((*momentBuffer)[dimension]->getElem(j + offset - 1)->getValue(), (*(*preGestureValues[gesture])[dimension])[i - 1]);
 			DTWEntry* prev = (*s[i - 1])[j];
 			int index = 1;
@@ -171,6 +165,8 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		}
 	}
 
+	double right = (*preGestureValues[gesture])[dimension]->size() - 1;
+	double bottom = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset - 1;
 	int rightSquared = right * right;
 	int bottomSquared = bottom * bottom;
 	double denominator = sqrt(rightSquared + bottomSquared);
@@ -189,7 +185,7 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		if ((*s[i])[j]->index == 2) { j--; }
 		if ((*s[i])[j]->index == 3) { i--; j--; }
 		double distance = abs(bottom * i - right * j) / denominator;
-		if (distance > window)
+		if (distance > 0.5 * right)
 		{
 			return false;
 		}
