@@ -137,31 +137,21 @@ int d(float f1, float f2) {
 }
 
 bool executeDTW(const int gesture, const int dimension, const int offset) {
-	double right = (*preGestureValues[gesture])[dimension]->size();
-	double bottom = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset;
-	/////// SHOULD be bottom / 2!!!
-	int window = int(right / 2);
+	double size = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset;
+	int window = int(size / 2);
 
 	vector<vector<DTWEntry*>*> s;
-	for (int i = 0; i < right + 1; i++) {
+	for (int i = 0; i < size + 1; i++) {
 		s.push_back(new vector<DTWEntry*>());
-		for (int j = 0; j < bottom + 1; j++) {
+		for (int j = 0; j < size + 1; j++) {
 			s.back()->push_back(new DTWEntry(999999));
-		}
-	}
-
-	for (int i = 0; i < right + 1; i++)
-	{
-		for (int j = 0; j < bottom + 1; j++)
-		{
-			(*s[i])[j] = new DTWEntry(999999);
 		}
 	}
 	(*s[0])[0] = new DTWEntry(0);
 
-	for (int i = 1; i < right + 1; i++) {
-		for (int j = max(1, i - window); j < min(bottom, i + window) + 1; j++) {
-			int cost = d((*momentBuffer)[dimension]->getElem(j + offset - 1)->getValue(), (*(*preGestureValues[gesture])[dimension])[i - 1]);
+	for (int i = 1; i < size + 1; i++) {
+		for (int j = max(1, i - window); j < min(size, i + window) + 1; j++) {
+			int cost = d((*momentBuffer)[dimension]->getElem(j + offset - 1)->getValue(), (*(*(*resizedPreGestureValues[size])[gesture])[dimension])[i - 1]);
 			DTWEntry* prev = (*s[i - 1])[j];
 			int index = 1;
 			if ((*s[i])[j - 1]->value < prev->value) {
@@ -176,24 +166,14 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		}
 	}
 
-	int rightSquared = right * right;
-	int bottomSquared = bottom * bottom;
-	double denominator = sqrt(rightSquared + bottomSquared);
-	int i = right;
-	int j = bottom;
-	/*int i = (*preGestureValues[gesture])[dimension]->size() - 1;
-	int j = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset - 1;
-	double targetI = i;
-	double targetJ = j;
-	double x = i;
-	double y = j;
-	const double deltaTargetI = (double) 0.5 * sqrt(2);
-	const double deltaTargetJ = ((double)j / (double)i) * (0.5 * sqrt(2));*/
+	double denominator = sqrt(2 * size * size);
+	int i = size;
+	int j = size;
 	while (true) {
 		if ((*s[i])[j]->index == 1) { i--; }
 		if ((*s[i])[j]->index == 2) { j--; }
 		if ((*s[i])[j]->index == 3) { i--; j--; }
-		double distance = abs(bottom * i - right * j) / denominator;
+		double distance = abs(size * i - size * j) / denominator;
 		if (distance > window)
 		{
 			return false;
@@ -202,17 +182,6 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		{
 			break;
 		}
-		/*targetI -= deltaTargetI;
-		targetJ -= deltaTargetJ;
-		if ((*s[i])[j]->index == 1) { i--; x -= deltaTargetI; targetI += 0.5 * deltaTargetI; }
-		if ((*s[i])[j]->index == 2) { j--; j -= deltaTargetJ; targetJ += 0.5 * deltaTargetJ;  }
-		if ((*s[i])[j]->index == 3) { i--; j--; x -= deltaTargetI; y -= deltaTargetJ; }
-		if (abs((targetI - x) / ((*preGestureValues[gesture])[dimension]->size() - 1)) + abs((targetJ - y) / ((*momentBuffer)[dimension]->getNumValuesInBuffer() - 1)) >= DTW_MATCH_GESTURE_THRESHOLD) {
-			return false;
-		}
-		if (targetI <= 0) { // so targetJ is also lesser than or equal to 0
-			break;
-		}*/
 	}
 	return true;
 }
@@ -644,21 +613,29 @@ void useGRT() {
 
 		for (int i = MINIMUM_MOMENTS_FOR_GESTURE; i < preGestureValues.back()->back()->size() + 1; i++)
 		{
-			double a = double(preGestureValues.back()->back()->size() - 1) / double(MINIMUM_MOMENTS_FOR_GESTURE - 1);
+			double a = double(preGestureValues.back()->back()->size()) / double(i);
 			resizedPreGestureValues[i]->push_back(new vector<vector<float>*>);
 			for (int j = 0; j < 6; j++) {
 				resizedPreGestureValues[i]->back()->push_back(new vector<float>);
 				for (int k = 0; k < i; k++)
 				{
-					int avg = 0;
-					avg += ((k * a) - floor(k * a)) * (*preGestureValues.back()->back)[floor(k * a)];
-					for (int l = ceil(k * a); l < floor(k * a + a); l++)
-					{
-						avg += (*preGestureValues.back()->back())[l];
+					double avg = 0;
+					if (k > 0) { // just for efficiency
+						double firstFactor = ceil(k * a - 0.0001) - k * a;
+						if (abs(firstFactor) > 0.0001) {
+							avg += firstFactor * (*(*preGestureValues.back())[j])[floor(k * a)];
+						}
 					}
-					avg += ((k + 1) * a - floor((k + 1) * a)) * (*preGestureValues.back()->back())[floor((k + 1) * a)];
+					for (int l = ceil(k * a - 0.0001); l < floor((k + 1) * a); l++)
+					{
+						avg += (*(*preGestureValues.back())[j])[l];
+					}
+					double lastFactor = (k + 1) * a - floor((k + 1) * a + 0.0001);
+					if (abs(lastFactor) > 0.0001) {
+						avg += lastFactor * (*(*preGestureValues.back())[j])[floor((k + 1) * a + 0.0001)];
+					}
 					avg /= a;
-					resizedPreGestureValues[i]->back()->back()->push_back(avg);
+					resizedPreGestureValues[i]->back()->back()->push_back(float(avg));
 				}
 			}
 		}
