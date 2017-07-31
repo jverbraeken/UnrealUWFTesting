@@ -19,6 +19,7 @@
 
 #define LOG_INCOMING 0
 
+#define MINIMUM_MOMENTS_FOR_GESTURE 15
 #define MOMENT_BUFFER_SIZE 100
 
 using namespace std;
@@ -42,8 +43,12 @@ class Capture;
 class Moment;
 
 unsigned int numGestures;
+// per gesture
 vector<string> preGestureNames;
+// per gesture per dimension per sample
 vector<vector<vector<float>*>*> preGestureValues;
+// per resizement per gesture per dimension per sample
+vector<vector<vector<vector<float>*>*>*> resizedPreGestureValues;
 vector<vector<unsigned int>*> numPreCaptures;
 vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that we make it a CircularBuffer is because we have to convert a CircularBuffer to a vector otherwise
 
@@ -282,12 +287,18 @@ void checkCaptureBuffer() {
 				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
 				if (double(dtw[(*numPreCaptures[i])[j]][(*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset]) / double((*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
 					cout << "UWF matched.......   " << endl;
-					if (executeDTW(i, j, momentOffset)) {
-						cout << "Gesture matched!!!" << endl;
-						for (int i = 0; i < 6; i++) {
-							(*captureBuffer)[i]->reset();
+					if (momentCounter - momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
+					{
+						cout << "Too few moment for a gesture..." << endl;
+					}
+					else {
+						if (executeDTW(i, j, momentOffset)) {
+							cout << "Gesture matched!!!" << endl;
+							for (int i = 0; i < 6; i++) {
+								(*captureBuffer)[i]->reset();
+							}
+							break;
 						}
-						break;
 					}
 				}
 			}
@@ -630,6 +641,27 @@ void useGRT() {
 			state.push_back(STATE_STABLE);
 		}
 		isFirstSample = true;
+
+		for (int i = MINIMUM_MOMENTS_FOR_GESTURE; i < preGestureValues.back()->back()->size() + 1; i++)
+		{
+			double a = double(preGestureValues.back()->back()->size() - 1) / double(MINIMUM_MOMENTS_FOR_GESTURE - 1);
+			resizedPreGestureValues[i]->push_back(new vector<vector<float>*>);
+			for (int j = 0; j < 6; j++) {
+				resizedPreGestureValues[i]->back()->push_back(new vector<float>);
+				for (int k = 0; k < i; k++)
+				{
+					int avg = 0;
+					avg += ((k * a) - floor(k * a)) * (*preGestureValues.back()->back)[floor(k * a)];
+					for (int l = ceil(k * a); l < floor(k * a + a); l++)
+					{
+						avg += (*preGestureValues.back()->back())[l];
+					}
+					avg += ((k + 1) * a - floor((k + 1) * a)) * (*preGestureValues.back()->back())[floor((k + 1) * a)];
+					avg /= a;
+					resizedPreGestureValues[i]->back()->back()->push_back(avg);
+				}
+			}
+		}
 	}
 	in.close();
 }
@@ -665,6 +697,11 @@ int main() {
 	captureBuffer = new vector<CircularBuffer<Capture*>*>();
 	for (int i = 0; i < 6; i++) {
 		captureBuffer->push_back(new CircularBuffer<Capture*>(10));
+	}
+
+	for (int i = 0; i < MOMENT_BUFFER_SIZE + 1; i++)
+	{
+		resizedPreGestureValues.push_back(new vector<vector<vector<float>*>*>);
 	}
 
 	useGRT();
