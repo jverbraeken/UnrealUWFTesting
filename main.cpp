@@ -49,6 +49,8 @@ vector<string> preGestureNames;
 vector<vector<vector<float>*>*> preGestureValues;
 // per resizement per gesture per dimension per sample
 vector<vector<vector<vector<float>*>*>*> resizedPreGestureValues;
+// per gesture per dimension the average
+vector<vector<float>*> preGestureAverage;
 vector<vector<unsigned int>*> numPreCaptures;
 vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that we make it a CircularBuffer is because we have to convert a CircularBuffer to a vector otherwise
 
@@ -550,6 +552,7 @@ void useGRT() {
 			preGestureValues.back()->push_back(new vector<float>());
 		}
 		numPreCaptures.push_back(new vector<unsigned int>());
+		preGestureAverage.push_back(new vector<float>);
 		UINT classLabel = 0;
 		UINT timeSeriesLength = 0;
 
@@ -639,6 +642,16 @@ void useGRT() {
 				}
 			}
 		}
+
+		float average = 0.f;
+		for (int i = 0; i < 6; i++)
+		{
+			for (float value : *preGestureValues.back()->back())
+			{
+				average += value;
+			}
+			preGestureAverage.back->push_back(average / preGestureValues.back()->size());
+		}
 	}
 	in.close();
 }
@@ -661,6 +674,7 @@ int main() {
 	for (int i = 0; i < 6; i++) {
 		momentBuffer->push_back(new CircularBuffer<Moment *>(MOMENT_BUFFER_SIZE));
 	}
+
 	for (int i = 0; i < 6; i++) {
 		state.push_back(STATE_STABLE);
 	}
