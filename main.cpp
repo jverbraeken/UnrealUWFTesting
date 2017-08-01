@@ -306,7 +306,7 @@ void checkCaptureBuffer() {
 						{
 							continue;
 						}
-						if (momentOffset == -1)resiz
+						if (momentOffset == -1)
 						{
 							momentOffset = momentCounter - (*(*captureBuffer)[j])[l + captureOffset]->getMomentCounterAtStart();
 							if (momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
