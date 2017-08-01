@@ -56,7 +56,8 @@ vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that 
 
 // for each dimension for each time a moment
 vector<CircularBuffer<Moment *> *> * momentBuffer;
-vector<vector<float>*> momentBufferAverage;
+// per dimension per resizement an average
+vector<vector<float>> momentBufferAverage;
 vector<int> state;
 // for each dimension for each time a capture
 vector<CircularBuffer<Capture*>*>* captureBuffer;
@@ -88,8 +89,8 @@ float getFloatFromBuffer(char *buf, int offset) {
 	float result;
 	memcpy(&tmp, &buf[offset], 4);
 
-	char *floatToConvert = (char *)&tmp;
-	char *returnFloat = (char *)&result;
+	char *floatToConvert = reinterpret_cast<char *>(&tmp);
+	char *returnFloat = reinterpret_cast<char *>(&result);
 	returnFloat[0] = floatToConvert[3];
 	returnFloat[1] = floatToConvert[2];
 	returnFloat[2] = floatToConvert[1];
@@ -103,8 +104,8 @@ long long getLongFromBuffer(char *buf, int offset) {
 	long long result;
 	memcpy(&tmp, &buf[offset], 8);
 
-	char *longToConvert = (char *)&tmp;
-	char *returnLong = (char *)&result;
+	char *longToConvert = reinterpret_cast<char *>(&tmp);
+	char *returnLong = reinterpret_cast<char *>(&result);
 	returnLong[0] = longToConvert[7];
 	returnLong[1] = longToConvert[6];
 	returnLong[2] = longToConvert[5];
@@ -143,6 +144,11 @@ vector<float>* resizeVector(int newSize, float scalingFactor, vector<float>* ori
 	return result;
 }
 
+float addToAverage(float average, int size, float value)
+{
+	return (size * average + value) / (size + 1);
+}
+
 
 
 
@@ -178,14 +184,20 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 	}
 	(*s[0])[0] = new DTWEntry(0);
 
-	const float momentAverage = (*momentBufferAverage[size])[dimension];
+	const float momentAverage = momentBufferAverage[dimension][size];
 	const float preGestureAvg = (*preGestureAverage[gesture])[dimension];
 
 	if (size > preGestureValues[gesture]->back()->size())
 	{
 		int newSize = preGestureValues[gesture]->back()->size();
-		double scalingFactor = double(preGestureValues.back()->back()->size()) / size;
-		vector<float>* resizedMomentBuffer = resizeVector(newSize, scalingFactor, (*preGestureValues.back())[dimension]);
+		double scalingFactor = double(newSize) / size;
+		vector<Moment*> moments = (*momentBuffer)[dimension]->getData();
+		vector<float> momentValues = vector<float>(moments.size());
+		for (Moment* moment : moments)
+		{
+			momentValues.push_back(moment->getValue());
+		}
+		vector<float>* resizedMomentBuffer = resizeVector(newSize, scalingFactor, &momentValues);
 		vector<float>* resizedAveragedMomentBuffer = resizedMomentBuffer;
 
 		for (int i = 0; i < newSize; i++)
@@ -198,7 +210,7 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		 */
 		for (int i = 1; i < newSize + 1; i++) {
 			const int i_minus_one = i - 1;
-			const float preGestureValue = (*(*(*resizedPreGestureValues[size])[gesture])[dimension])[i_minus_one] - preGestureAvg;
+			const float preGestureValue = (*(*(*resizedPreGestureValues[newSize])[gesture])[dimension])[i_minus_one] - preGestureAvg;
 
 			for (int j = max(1, i - window); j < min(newSize, i + window) + 1; j++) {
 				const int j_minus_one = j - 1;
@@ -297,7 +309,7 @@ void checkCaptureBuffer() {
 			dtwTemplate[0][0] = 0;
 
 			// TODO this should be reversed to improve efficiency
-			for (int captureOffset = 0; captureOffset <= (int)(*captureBuffer)[j]->getNumValuesInBuffer() - (int)(*numPreCaptures[i])[j]; captureOffset++) {
+			for (int captureOffset = 0; captureOffset <= int((*captureBuffer)[j]->getNumValuesInBuffer()) - int((*numPreCaptures[i])[j]); captureOffset++) {
 				vector<vector<int>> dtw = dtwTemplate; // copying more efficient than constructing a new one
 				int momentOffset = -1;
 				for (int k = 0; k < (*numPreCaptures[i])[j]; k++) {
@@ -767,15 +779,16 @@ int main() {
 		resizedPreGestureValues.push_back(new vector<vector<vector<float>*>*>);
 	}
 
+	momentBufferAverage = vector<vector<float>>(6, vector<float>(MOMENT_BUFFER_SIZE, 0));
+
 	useGRT();
 
 	SOCKET s;
 	struct sockaddr_in server, si_other;
-	int slen;
 	char buf[BUFLEN];
 	WSADATA wsa;
 
-	slen = sizeof(si_other);
+	int slen = sizeof(si_other);
 
 	//Initialise winsock
 	printf("Initialising Winsock...\n");
@@ -797,7 +810,7 @@ int main() {
 	server.sin_port = htons(PORT);
 
 	//Bind
-	if (bind(s, (struct sockaddr *) &server, sizeof(server)) == SOCKET_ERROR) {
+	if (bind(s, reinterpret_cast<struct sockaddr *>(&server), sizeof(server)) == SOCKET_ERROR) {
 		printf("Bind failed with error code : %d", WSAGetLastError());
 		exit(EXIT_FAILURE);
 	}
@@ -811,7 +824,7 @@ int main() {
 
 
 	//keep listening for data
-	while (1) {
+	while (true) {
 		//printf("Waiting for data...");
 		fflush(stdout);
 
@@ -819,7 +832,7 @@ int main() {
 		memset(buf, '\0', BUFLEN);
 
 		//try to receive some data, this is a blocking call
-		if (recvfrom(s, buf, BUFLEN, 0, (struct sockaddr *) &si_other, &slen) == SOCKET_ERROR) {
+		if (recvfrom(s, buf, BUFLEN, 0, reinterpret_cast<struct sockaddr *>(&si_other), &slen) == SOCKET_ERROR) {
 			printf("recvfrom() failed with error code : %d", WSAGetLastError());
 			exit(EXIT_FAILURE);
 		}
@@ -851,6 +864,15 @@ int main() {
 		moment[3] = new Moment(xacc, acc_timestamp);
 		moment[4] = new Moment(yacc, acc_timestamp);
 		moment[5] = new Moment(zacc, acc_timestamp);
+
+		for (int i = 0; i < 6; i++)
+		{
+			int numValues = (*momentBuffer)[i]->getNumValuesInBuffer();
+			for (int j = MINIMUM_MOMENTS_FOR_GESTURE; j < numValues; j++)
+			{
+				momentBufferAverage[i][j] = addToAverage(momentBufferAverage[i][j], numValues, moment[i]->getValue());
+			}
+		}
 
 #if LOG_INCOMING != 0
 		printf("Rotation: %f, %f, %f, %lld - Acceleration: %f, %f, %f, %lld - Touch: %f, %f, %c, %lld\n",

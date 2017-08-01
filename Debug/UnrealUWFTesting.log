@@ -1,28 +1,31 @@
 ﻿  main.cpp
-main.cpp(138): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
-main.cpp(156): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
-main.cpp(172): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(173): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(200): warning C4018: '<': signed/unsigned mismatch
-main.cpp(204): warning C4018: '<': signed/unsigned mismatch
-main.cpp(207): warning C4018: '<': signed/unsigned mismatch
-main.cpp(216): warning C4018: '<': signed/unsigned mismatch
-main.cpp(217): warning C4018: '<': signed/unsigned mismatch
-main.cpp(351): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(368): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(389): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
-main.cpp(426): warning C4018: '<': signed/unsigned mismatch
-main.cpp(443): warning C4018: '<': signed/unsigned mismatch
-main.cpp(621): warning C4018: '<': signed/unsigned mismatch
-main.cpp(633): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
-main.cpp(636): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(642): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
-main.cpp(803): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
+main.cpp(130): warning C4244: 'argument': conversion from 'float' to 'unsigned int', possible loss of data
+main.cpp(133): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(139): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
+main.cpp(171): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
+main.cpp(187): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
+main.cpp(200): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+main.cpp(246): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
+main.cpp(271): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(272): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(299): warning C4018: '<': signed/unsigned mismatch
+main.cpp(303): warning C4018: '<': signed/unsigned mismatch
+main.cpp(306): warning C4018: '<': signed/unsigned mismatch
+main.cpp(315): warning C4018: '<': signed/unsigned mismatch
+main.cpp(316): warning C4018: '<': signed/unsigned mismatch
+main.cpp(450): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(467): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(488): warning C4244: '+=': conversion from '__int64' to 'int', possible loss of data
+main.cpp(525): warning C4018: '<': signed/unsigned mismatch
+main.cpp(542): warning C4018: '<': signed/unsigned mismatch
+main.cpp(720): warning C4018: '<': signed/unsigned mismatch
+main.cpp(725): warning C4244: 'argument': conversion from 'double' to 'float', possible loss of data
+main.cpp(893): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
           with
           [
               _Ty=CircularBuffer<Moment *> *
           ]
-main.cpp(807): warning C4068: unknown pragma
+main.cpp(897): warning C4068: unknown pragma
 c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a': unreferenced local variable
   c:\users\jverb\documents\git\unrealuwftesting\Vector.h(133): note: while compiling class template member function 'bool Vector<T>::resize(const unsigned int)'
           with
@@ -39,6 +42,6 @@ c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a':
           [
               T=Capture *
           ]
-  main.cpp(203): note: see reference to class template instantiation 'CircularBuffer<Capture *>' being compiled
+  main.cpp(302): note: see reference to class template instantiation 'CircularBuffer<Capture *>' being compiled
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.exe
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.pdb (Full PDB)
