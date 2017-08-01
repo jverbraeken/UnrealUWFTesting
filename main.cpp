@@ -56,6 +56,7 @@ vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that 
 
 // for each dimension for each time a moment
 vector<CircularBuffer<Moment *> *> * momentBuffer;
+vector<vector<float>*> momentBufferAverage;
 vector<int> state;
 // for each dimension for each time a capture
 vector<CircularBuffer<Capture*>*>* captureBuffer;
@@ -116,6 +117,32 @@ long long getLongFromBuffer(char *buf, int offset) {
 	return result;
 }
 
+vector<float>* resizeVector(int newSize, float scalingFactor, vector<float>* originalVector)
+{
+	vector<float>* result = new vector<float>;
+	for (int k = 0; k < newSize; k++)
+	{
+		double avg = 0;
+		if (k > 0) { // just for efficiency
+			double firstFactor = ceil(k * scalingFactor - 0.0001) - k * scalingFactor;
+			if (abs(firstFactor) > 0.0001) {
+				avg += firstFactor * (*originalVector)[floor(k * scalingFactor)];
+			}
+		}
+		for (int l = ceil(k * scalingFactor - 0.0001); l < floor((k + 1) * scalingFactor); l++)
+		{
+			avg += (*originalVector)[l];
+		}
+		double lastFactor = (k + 1) * scalingFactor - floor((k + 1) * scalingFactor + 0.0001);
+		if (abs(lastFactor) > 0.0001) {
+			avg += lastFactor * (*originalVector)[floor((k + 1) * scalingFactor + 0.0001)];
+		}
+		avg /= scalingFactor;
+		result->push_back(float(avg));
+	}
+	return result;
+}
+
 
 
 
@@ -151,20 +178,80 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 	}
 	(*s[0])[0] = new DTWEntry(0);
 
-	for (int i = 1; i < size + 1; i++) {
-		for (int j = max(1, i - window); j < min(size, i + window) + 1; j++) {
-			int cost = d((*momentBuffer)[dimension]->getElem(j + offset - 1)->getValue(), (*(*(*resizedPreGestureValues[size])[gesture])[dimension])[i - 1]);
-			DTWEntry* prev = (*s[i - 1])[j];
-			int index = 1;
-			if ((*s[i])[j - 1]->value < prev->value) {
-				prev = (*s[i])[j - 1];
-				index = 2;
+	const float momentAverage = (*momentBufferAverage[size])[dimension];
+	const float preGestureAvg = (*preGestureAverage[gesture])[dimension];
+
+	if (size > preGestureValues[gesture]->back()->size())
+	{
+		int newSize = preGestureValues[gesture]->back()->size();
+		double scalingFactor = double(preGestureValues.back()->back()->size()) / size;
+		vector<float>* resizedMomentBuffer = resizeVector(newSize, scalingFactor, (*preGestureValues.back())[dimension]);
+		vector<float>* resizedAveragedMomentBuffer = resizedMomentBuffer;
+
+		for (int i = 0; i < newSize; i++)
+		{
+			resizedAveragedMomentBuffer->push_back((*resizedMomentBuffer)[i] - momentAverage);
+		}
+
+		/*
+		 * More or less duplicate code -> reduces an if-statement in the double for loop
+		 */
+		for (int i = 1; i < newSize + 1; i++) {
+			const int i_minus_one = i - 1;
+			const float preGestureValue = (*(*(*resizedPreGestureValues[size])[gesture])[dimension])[i_minus_one] - preGestureAvg;
+
+			for (int j = max(1, i - window); j < min(newSize, i + window) + 1; j++) {
+				const int j_minus_one = j - 1;
+
+				const float momentValue = (*resizedAveragedMomentBuffer)[j_minus_one];
+
+				int cost = d(momentValue, preGestureValue);
+
+				DTWEntry* prev = (*s[i_minus_one])[j];
+				int index = 1;
+				if ((*s[i])[j_minus_one]->value < prev->value) {
+					prev = (*s[i])[j_minus_one];
+					index = 2;
+				}
+				if ((*s[i_minus_one])[j_minus_one]->value < prev->value) {
+					prev = (*s[i_minus_one])[j_minus_one];
+					index = 3;
+				}
+				(*s[i])[j] = new DTWEntry(cost + prev->value, prev, index);
 			}
-			if ((*s[i - 1])[j - 1]->value < prev->value) {
-				prev = (*s[i - 1])[j - 1];
-				index = 3;
+		}
+	}
+	else {
+
+		vector<float> averagedMomentBuffer;
+		for (int i = 0; i < size; i++)
+		{
+			averagedMomentBuffer.push_back((*momentBuffer)[dimension]->getElem(i + offset)->getValue() - momentAverage);
+		}
+
+		for (int i = 1; i < size + 1; i++) {
+			const int i_minus_one = i - 1;
+			const float preGestureValue = (*(*(*resizedPreGestureValues[size])[gesture])[dimension])[i_minus_one] - preGestureAvg;
+
+			for (int j = max(1, i - window); j < min(size, i + window) + 1; j++) {
+				const int j_minus_one = j - 1;
+
+				const float momentValue = averagedMomentBuffer[i-1];
+
+				int cost = d(momentValue, preGestureValue);
+
+				DTWEntry* prev = (*s[i_minus_one])[j];
+				int index = 1;
+				if ((*s[i])[j_minus_one]->value < prev->value) {
+					prev = (*s[i])[j_minus_one];
+					index = 2;
+				}
+				if ((*s[i_minus_one])[j - 1]->value < prev->value) {
+					prev = (*s[i_minus_one])[j_minus_one];
+					index = 3;
+				}
+				(*s[i])[j] = new DTWEntry(cost + prev->value, prev, index);
 			}
-			(*s[i])[j] = new DTWEntry(cost + prev->value, prev, index);
 		}
 	}
 
@@ -219,9 +306,13 @@ void checkCaptureBuffer() {
 						{
 							continue;
 						}
-						if (momentOffset == -1)
+						if (momentOffset == -1)resiz
 						{
 							momentOffset = momentCounter - (*(*captureBuffer)[j])[l + captureOffset]->getMomentCounterAtStart();
+							if (momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
+							{
+								break;
+							}
 						}
 						int cost = -1;
 						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*captureBuffer)[j])[l + captureOffset]->getState()) {
@@ -616,30 +707,11 @@ void useGRT() {
 
 		for (int i = MINIMUM_MOMENTS_FOR_GESTURE; i < preGestureValues.back()->back()->size() + 1; i++)
 		{
-			double a = double(preGestureValues.back()->back()->size()) / double(i);
+			double scalingFactor = double(preGestureValues.back()->back()->size()) / double(i);
 			resizedPreGestureValues[i]->push_back(new vector<vector<float>*>);
 			for (int j = 0; j < 6; j++) {
-				resizedPreGestureValues[i]->back()->push_back(new vector<float>);
-				for (int k = 0; k < i; k++)
-				{
-					double avg = 0;
-					if (k > 0) { // just for efficiency
-						double firstFactor = ceil(k * a - 0.0001) - k * a;
-						if (abs(firstFactor) > 0.0001) {
-							avg += firstFactor * (*(*preGestureValues.back())[j])[floor(k * a)];
-						}
-					}
-					for (int l = ceil(k * a - 0.0001); l < floor((k + 1) * a); l++)
-					{
-						avg += (*(*preGestureValues.back())[j])[l];
-					}
-					double lastFactor = (k + 1) * a - floor((k + 1) * a + 0.0001);
-					if (abs(lastFactor) > 0.0001) {
-						avg += lastFactor * (*(*preGestureValues.back())[j])[floor((k + 1) * a + 0.0001)];
-					}
-					avg /= a;
-					resizedPreGestureValues[i]->back()->back()->push_back(float(avg));
-				}
+				vector<float>* resizement = resizeVector(i, scalingFactor, (*preGestureValues.back())[j]);
+				resizedPreGestureValues[i]->back()->push_back(resizement);
 			}
 		}
 
@@ -650,7 +722,7 @@ void useGRT() {
 			{
 				average += value;
 			}
-			preGestureAverage.back->push_back(average / preGestureValues.back()->size());
+			preGestureAverage.back()->push_back(average / preGestureValues.back()->size());
 		}
 	}
 	in.close();
