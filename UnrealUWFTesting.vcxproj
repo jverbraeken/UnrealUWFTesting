@@ -104,7 +104,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Capture.h" />
-    <ClInclude Include="CircularBuffer.h.h" />
+    <ClInclude Include="CircularBuffer.h" />
     <ClInclude Include="Moment.h" />
     <ClInclude Include="Vector.h" />
   </ItemGroup>

@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <winsock2.h>
-#include "CircularBuffer.h.h"
+#include "CircularBuffer.h"
 
 #include "Moment.h"
 #include "Capture.h"
@@ -33,6 +33,10 @@ static const int FROM_STABLE_TO_FALLING[] = { -4000, -500 };
 
 static const int FALLING_THRESHOLD = -2;
 static const int RISING_THRESHOLD = 2;
+
+static const unsigned char COMTP_SENSOR_DATA = 1;
+static const unsigned char COMTP_SHAKING_STARTED = 2;
+static const unsigned char COMTP_SHAKING_STOPPED = 3;
 
 // TODO: do we actually need this?
 static const double CAPTURES_MATCH_GESTURE_THRESHOLD = 0.2;
@@ -248,7 +252,7 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 			for (int j = max(1, i - window); j < min(size, i + window) + 1; j++) {
 				const int j_minus_one = j - 1;
 
-				const float momentValue = averagedMomentBuffer[i-1];
+				const float momentValue = averagedMomentBuffer[i - 1];
 
 				int cost = d(momentValue, preGestureValue);
 
@@ -297,8 +301,9 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 
 void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
-		for (int j = 1; j < 2; j++) {
-
+		bool matched[6];
+		for (int j = 0; j < 6; j++) {
+			matched[j] = false;
 			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>((*captureBuffer)[j]->getNumValuesInBuffer() + 1));
 			for (int k = 1; k < (*numPreCaptures[i])[j]; k++) {
 				dtwTemplate[k][0] = 999999;
@@ -363,18 +368,26 @@ void checkCaptureBuffer() {
 					cout << "UWF matched.......   " << endl;
 					if (momentCounter - momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
 					{
-						cout << "Too few moment for a gesture..." << endl;
+						cout << "Too few moments for a gesture..." << endl;
 					}
-					else {
-						if (executeDTW(i, j, momentOffset)) {
+					else if (executeDTW(i, j, momentOffset)) {
+						cout << "Gesture partly matched!" << endl;
+						if (j == 5)
+						{
 							cout << "Gesture matched!!!" << endl;
-							for (int i = 0; i < 6; i++) {
-								(*captureBuffer)[i]->reset();
+							for (int l = 0; l < 6; l++) {
+								(*captureBuffer)[l]->reset();
 							}
 							break;
 						}
+						matched[j] = true;
+						break;
 					}
 				}
+			}
+			if (matched[j] == false)
+			{
+				break;
 			}
 		}
 	}
@@ -423,9 +436,10 @@ void goToStable(int i, Moment *moment, bool evaluate) {
 void goToFalling(int i, Moment *moment, bool evaluate) {
 	cout << "State is FALLING" << endl;
 	if ((*captureBuffer)[i]->getNumValuesInBuffer() > 0) {
-		(*captureBuffer)[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
-			(*((*momentBuffer)[i]))[(*momentBuffer)[i]->getNumValuesInBuffer()
-			- cooldown_num]->getValue());
+		(*captureBuffer)[i]->getBack()->end(
+			(*momentBuffer)[i]->getBack()->getTime(),
+			(*(*momentBuffer)[i])[(*momentBuffer)[i]->getNumValuesInBuffer() - cooldown_num]->getValue()
+		);
 	}
 	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
 		STATE_FALLING,
@@ -440,20 +454,20 @@ void goToFalling(int i, Moment *moment, bool evaluate) {
 	}
 }
 
-void executeUWF(Moment** moment, bool evaluate = true) {
-	for (int i = 1; i < 2; i++) {
+void executeUWF(vector<Moment*> moments, bool evaluate = true) {
+	for (int i = 0; i < 6; i++) {
 		const unsigned int type = i < 3 ? 0u : 1u;
 		if (state[i] == STATE_RISING) {
-			const float diff = moment[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
+			const float diff = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
 			if (diff < RISING_THRESHOLD) {
 				cooldown_value += diff - RISING_THRESHOLD;
-				cooldown_time += moment[i]->getTime() - (*momentBuffer)[i]->getBack()->getTime();
+				cooldown_time += moments[i]->getTime() - (*momentBuffer)[i]->getBack()->getTime();
 				cooldown_num++;
 				if (cooldown_value * cooldown_time < FROM_RISING_TO_FALLING[type]) {
-					goToFalling(i, moment[i], evaluate);
+					goToFalling(i, moments[i], evaluate);
 				}
 				else if (cooldown_value * cooldown_time < FROM_RISING_TO_STABLE[type]) {
-					goToStable(i, moment[i], evaluate);
+					goToStable(i, moments[i], evaluate);
 				}
 			}
 			else {
@@ -461,16 +475,16 @@ void executeUWF(Moment** moment, bool evaluate = true) {
 			}
 		}
 		else if (state[i] == STATE_FALLING) {
-			const float diff = moment[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
+			const float diff = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
 			if (diff >= FALLING_THRESHOLD) {
 				cooldown_value += diff - FALLING_THRESHOLD;
-				cooldown_time += moment[i]->getTime() - (*momentBuffer)[i]->getBack()->getTime();
+				cooldown_time += moments[i]->getTime() - (*momentBuffer)[i]->getBack()->getTime();
 				cooldown_num++;
 				if (cooldown_value * cooldown_time >= FROM_FALLING_TO_RISING[type]) {
-					goToRising(i, moment[i], evaluate);
+					goToRising(i, moments[i], evaluate);
 				}
 				else if (cooldown_value * cooldown_time >= FROM_FALLING_TO_STABLE[type]) {
-					goToStable(i, moment[i], evaluate);
+					goToStable(i, moments[i], evaluate);
 				}
 			}
 			else {
@@ -478,20 +492,17 @@ void executeUWF(Moment** moment, bool evaluate = true) {
 			}
 		}
 		else if (state[i] == STATE_STABLE) {
-			if (isFirstSample) {
-				isFirstSample = false;
-			}
-			else {
-				const float diff = moment[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
+			if (!isFirstSample) {
+				const float diff = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
 				if (diff < FALLING_THRESHOLD || diff > RISING_THRESHOLD) {
 					cooldown_value += diff;
-					cooldown_time += moment[i]->getTime() - (*momentBuffer)[i]->getBack()->getTime();
+					cooldown_time += moments[i]->getTime() - (*momentBuffer)[i]->getBack()->getTime();
 					cooldown_num++;
 					if (cooldown_value * cooldown_time >= FROM_STABLE_TO_RISING[type]) {
-						goToRising(i, moment[i], evaluate);
+						goToRising(i, moments[i], evaluate);
 					}
 					else if (cooldown_value * cooldown_time < FROM_STABLE_TO_FALLING[type]) {
-						goToFalling(i, moment[i], evaluate);
+						goToFalling(i, moments[i], evaluate);
 					}
 				}
 				else {
@@ -499,8 +510,9 @@ void executeUWF(Moment** moment, bool evaluate = true) {
 				}
 			}
 		}
-		(*momentBuffer)[i]->push_back(moment[i]);
+		(*momentBuffer)[i]->push_back(moments[i]);
 	}
+	isFirstSample = false;
 }
 
 
@@ -557,9 +569,9 @@ void useUWF() {
 void useGRT() {
 	preGestureValues = vector<vector<vector<float>*>*>();
 
-	cout << "Testing file \"test.grt\"" << endl << endl;
+	cout << "Testing file \"wingardium.grt\"" << endl << endl;
 	ifstream in;
-	in.open("C:\\Users\\jverb\\Documents\\Git\\UnrealUWFTesting\\test.grt");
+	in.open("C:\\Users\\jverb\\Documents\\Git\\UnrealUWFTesting\\wingardium.grt");
 	if (!in.is_open()) {
 		cout << "File cannot be opened" << endl;
 	}
@@ -688,22 +700,22 @@ void useGRT() {
 		long long tmpTimer = 0;
 
 		for (UINT i = 0; i < timeSeriesLength; i++) {
-			Moment* moments[6];
+			vector<Moment*> moments = vector<Moment*>();
 			for (UINT j = 0; j < 6; j++) {
 				float y;
 				in >> y;
 				(*preGestureValues.back())[j]->push_back(y);
-				moments[j] = new Moment(y, tmpTimer);
-				tmpTimer += 50;
+				moments.push_back(new Moment(y, tmpTimer));
 			}
 			executeUWF(moments, false);
+			tmpTimer += 50;
 		}
 		preCaptures.push_back(captureBuffer);
 		for (int i = 0; i < 6; i++) {
 			numPreCaptures.back()->push_back((*captureBuffer)[i]->getNumValuesInBuffer());
-			(*captureBuffer)[i]->reset();
 		}
 
+		// Make a new one because the old one is now used in preCaptures; modifying it will modify preCaptures
 		captureBuffer = new vector<CircularBuffer<Capture*>*>();
 		for (int i = 0; i < 6; i++) {
 			captureBuffer->push_back(new CircularBuffer<Capture*>(10));
@@ -840,58 +852,67 @@ int main() {
 		//print details of the client/peer and the data received
 		//printf("Received packet from %s:%d\n", inet_ntoa(si_other.sin_addr), ntohs(si_other.sin_port));
 		//printf("Data: %s\n", buf);
-		float xrot = getFloatFromBuffer(buf, 0);
-		float yrot = getFloatFromBuffer(buf, 4);
-		float zrot = getFloatFromBuffer(buf, 8);
-		long long rot_timestamp = getLongFromBuffer(buf, 12);
+		unsigned char request = getByteFromBuffer(buf, 0);
+		if (request == COMTP_SENSOR_DATA) {
+			float xrot = getFloatFromBuffer(buf, 1);
+			float yrot = getFloatFromBuffer(buf, 5);
+			float zrot = getFloatFromBuffer(buf, 9);
+			long long rot_timestamp = getLongFromBuffer(buf, 13);
 
-		float xacc = getFloatFromBuffer(buf, 20);
-		float yacc = getFloatFromBuffer(buf, 24);
-		float zacc = getFloatFromBuffer(buf, 28);
-		long long acc_timestamp = getLongFromBuffer(buf, 32);
+			float xacc = getFloatFromBuffer(buf, 21);
+			float yacc = getFloatFromBuffer(buf, 25);
+			float zacc = getFloatFromBuffer(buf, 29);
+			long long acc_timestamp = getLongFromBuffer(buf, 33);
 
-		float xtouch = getFloatFromBuffer(buf, 40);
-		float ytouch = getFloatFromBuffer(buf, 44);
-		unsigned char touch_state = getByteFromBuffer(buf, 48);
-		long long touch_timestamp = getLongFromBuffer(buf, 49);
+			float xtouch = getFloatFromBuffer(buf, 41);
+			float ytouch = getFloatFromBuffer(buf, 45);
+			unsigned char touch_state = getByteFromBuffer(buf, 49);
+			long long touch_timestamp = getLongFromBuffer(buf, 50);
 
-		momentCounter++;
+			momentCounter++;
 
-		Moment* moment[6];
-		moment[0] = new Moment(xrot, rot_timestamp);
-		moment[1] = new Moment(yrot, rot_timestamp);
-		moment[2] = new Moment(zrot, rot_timestamp);
-		moment[3] = new Moment(xacc, acc_timestamp);
-		moment[4] = new Moment(yacc, acc_timestamp);
-		moment[5] = new Moment(zacc, acc_timestamp);
+			vector<Moment*> moments = vector<Moment*>();
+			moments.push_back(new Moment(xrot, rot_timestamp));
+			moments.push_back(new Moment(yrot, rot_timestamp));
+			moments.push_back(new Moment(zrot, rot_timestamp));
+			moments.push_back(new Moment(xacc, acc_timestamp));
+			moments.push_back(new Moment(yacc, acc_timestamp));
+			moments.push_back(new Moment(zacc, acc_timestamp));
 
-		for (int i = 0; i < 6; i++)
-		{
-			int numValues = (*momentBuffer)[i]->getNumValuesInBuffer();
-			for (int j = MINIMUM_MOMENTS_FOR_GESTURE; j < numValues; j++)
+			for (int i = 0; i < 6; i++)
 			{
-				momentBufferAverage[i][j] = addToAverage(momentBufferAverage[i][j], numValues, moment[i]->getValue());
+				int numValues = (*momentBuffer)[i]->getNumValuesInBuffer();
+				for (int j = MINIMUM_MOMENTS_FOR_GESTURE; j < numValues; j++)
+				{
+					momentBufferAverage[i][j] = addToAverage(momentBufferAverage[i][j], numValues, moments[i]->getValue());
+				}
 			}
-		}
 
 #if LOG_INCOMING != 0
-		printf("Rotation: %f, %f, %f, %lld - Acceleration: %f, %f, %f, %lld - Touch: %f, %f, %c, %lld\n",
-			xrot,
-			yrot,
-			zrot,
-			rot_timestamp,
-			xacc,
-			yacc,
-			zacc,
-			acc_timestamp,
-			xtouch,
-			ytouch,
-			touch_state,
-			touch_timestamp);
+			printf("Rotation: %f, %f, %f, %lld - Acceleration: %f, %f, %f, %lld - Touch: %f, %f, %c, %lld\n",
+				xrot,
+				yrot,
+				zrot,
+				rot_timestamp,
+				xacc,
+				yacc,
+				zacc,
+				acc_timestamp,
+				xtouch,
+				ytouch,
+				touch_state,
+				touch_timestamp);
 #endif
 
-		executeUWF(moment, momentBuffer);
+			executeUWF(moments, momentBuffer);
+		}
+		else if (request == COMTP_SHAKING_STARTED)
+		{
+			// Do nothing
+		}
+		else if (request == COMTP_SHAKING_STOPPED)
+		{
+			// Do nothing
+		}
 	}
 }
-
-#pragma clang diagnostic pop

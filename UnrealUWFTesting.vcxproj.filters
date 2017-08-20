@@ -29,13 +29,13 @@
     <ClInclude Include="Capture.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CircularBuffer.h.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Moment.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Vector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CircularBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
