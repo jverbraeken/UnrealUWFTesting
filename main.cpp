@@ -123,8 +123,9 @@ long long getLongFromBuffer(char *buf, int offset) {
 	return result;
 }
 
-vector<float>* resizeVector(int newSize, float scalingFactor, vector<float>* originalVector)
+vector<float>* resizeVector(int newSize, vector<float>* originalVector)
 {
+	double scalingFactor = double(originalVector->size()) / double(newSize);
 	vector<float>* result = new vector<float>;
 	for (int k = 0; k < newSize; k++)
 	{
@@ -203,7 +204,6 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		}
 		(*s[0])[0] = new DTWEntry(0);
 
-		double scalingFactor = double(newSize) / size;
 		vector<Moment*> moments = (*momentBuffer)[dimension]->getData();
 		vector<float> momentValues = vector<float>(moments.size());
 		for (int i = 0; i < moments.size(); i++)
@@ -213,7 +213,7 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 		vector<float>::const_iterator first = momentValues.begin() + offset;
 		vector<float>::const_iterator last = momentValues.end();
 		vector<float> subMomentBuffer(first, last);
-		vector<float>* resizedMomentBuffer = resizeVector(newSize, scalingFactor, &subMomentBuffer);
+		vector<float>* resizedMomentBuffer = resizeVector(newSize, &subMomentBuffer);
 		vector<float> resizedAveragedMomentBuffer(newSize);
 
 		for (int i = 0; i < newSize; i++)
@@ -327,10 +327,10 @@ void checkCaptureBuffer() {
 		for (int j = 0; j < 6; j++) {
 				matched[j] = false;
 			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>((*captureBuffer)[j]->getNumValuesInBuffer() + 1));
-			for (int k = 1; k < (*numPreCaptures[i])[j]; k++) {
+			for (int k = 1; k < (*numPreCaptures[i])[j] + 1; k++) {
 				dtwTemplate[k][0] = 999999;
 			}
-			for (int k = 1; k < (*captureBuffer)[j]->getNumValuesInBuffer(); k++) {
+			for (int k = 1; k < (*captureBuffer)[j]->getNumValuesInBuffer() + 1; k++) {
 				dtwTemplate[0][k] = 999999;
 			}
 			dtwTemplate[0][0] = 0;
@@ -344,6 +344,7 @@ void checkCaptureBuffer() {
 						const int captureNum = l + captureOffset;
 						if ((*(*captureBuffer)[j])[captureNum]->getMomentCounterAtStart() < momentCounter - MOMENT_BUFFER_SIZE)
 						{
+							dtw[k + 1][l + 1] = 999999;
 							continue;
 						}
 						if (momentOffset == -1)
@@ -737,22 +738,21 @@ void useGRT() {
 
 		for (int i = MINIMUM_MOMENTS_FOR_GESTURE; i < preGestureValues.back()->back()->size() + 1; i++)
 		{
-			double scalingFactor = double(preGestureValues.back()->back()->size()) / double(i);
 			resizedPreGestureValues[i]->push_back(new vector<vector<float>*>);
 			for (int j = 0; j < 6; j++) {
-				vector<float>* resizement = resizeVector(i, scalingFactor, (*preGestureValues.back())[j]);
+				vector<float>* resizement = resizeVector(i, (*preGestureValues.back())[j]);
 				resizedPreGestureValues[i]->back()->push_back(resizement);
 			}
 		}
 
-		float average = 0.f;
 		for (int i = 0; i < 6; i++)
 		{
-			for (float value : *preGestureValues.back()->back())
+			float average = 0.f;
+			for (float value : *(*preGestureValues.back())[i])
 			{
 				average += value;
 			}
-			preGestureAverage.back()->push_back(average / preGestureValues.back()->size());
+			preGestureAverage.back()->push_back(average / (*preGestureValues.back())[i]->size());
 			changingMomentOffset[i] = 0;
 		}
 
