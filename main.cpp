@@ -273,7 +273,7 @@ bool executeDTW(const int gesture, const int dimension, const int offset) {
 			for (int j = max(1, i - window); j < min(newSize, i + window) + 1; j++) {
 				const int j_minus_one = j - 1;
 
-				const float momentValue = averagedMomentBuffer[i - 1];
+				const float momentValue = averagedMomentBuffer[j_minus_one];
 
 				int cost = d(momentValue, preGestureValue);
 
