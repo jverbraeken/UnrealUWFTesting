@@ -434,7 +434,7 @@ void checkCaptureBuffer() {
 				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
 				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
 				if (double(dtw[(*numPreCaptures[i])[j]][numCaptures - captureOffset]) / double(numCaptures - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
-					cout << "UWF matched.......   " << endl;	
+					cout << "UWF matched.......   " << endl;
 					if (momentCounter - momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
 					{
 						cout << "Too few moments for a gesture..." << endl;
@@ -520,57 +520,78 @@ void goToFalling(int dimension, Moment *moment, bool evaluate) {
 }
 
 void executeUWF(vector<Moment*> moments, bool evaluate = true) {
-	for (int i = 2; i < 3; i++) {
-		const unsigned int type = i < 3 ? 0u : 1u;
-		if (state[i] == STATE_RISING) {
-			const float diff = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
-			if (diff < FALLING_THRESHOLD[type])
+	if (!isFirstSample) {
+		for (int i = 2; i < 3; i++) {
+			const unsigned int type = i < 3 ? 0u : 1u;
+			const float value_0 = moments[i]->getValue() - ((*momentBuffer)[i]->getBack()->getValue() - 360);
+			const float value_1 = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
+			const float value_2 = moments[i]->getValue() - ((*momentBuffer)[i]->getBack()->getValue() + 360);
+			const float abs_value_0 = abs(value_0);
+			const float abs_value_1 = abs(value_1);
+			const float abs_value_2 = abs(value_2);
+			float diff;
+			if (abs_value_0 < abs_value_1 && abs_value_0 < abs_value_2)
 			{
-				goToFalling(i, moments[i], evaluate);
+				diff = value_0;
 			}
-			else if (diff < RISING_THRESHOLD[type]) {
-				momentDifference[i] = MOMENT_LOW_PASS_FILTER * momentDifference[i] + (1 - MOMENT_LOW_PASS_FILTER) * diff;
-				if (momentDifference[i] < RISING_THRESHOLD[type]) {
-					goToStable(i, moments[i], evaluate);
-				}
+			else if (abs_value_1 < abs_value_0 && abs_value_1 < abs_value_2)
+			{
+				diff = value_1;
 			}
 			else
 			{
-				momentDifference[i] = RISING_THRESHOLD[type] * 6;
+				diff = value_2;
 			}
-		}
-		else if (state[i] == STATE_FALLING) {
-			const float diff = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
-			if (diff >= RISING_THRESHOLD[type])
-			{
-				goToRising(i, moments[i], evaluate);
-			}
-			else if (diff >= FALLING_THRESHOLD[type]) {
-				momentDifference[i] = MOMENT_LOW_PASS_FILTER * momentDifference[i] + (1 - MOMENT_LOW_PASS_FILTER) * diff;
-				if (momentDifference[i] >= FALLING_THRESHOLD[type]) {
-					goToStable(i, moments[i], evaluate);
+			cout << diff << "     | " << moments[i]->getValue() << endl;
+			if (state[i] == STATE_RISING) {
+				if (diff < FALLING_THRESHOLD[type])
+				{
+					goToFalling(i, moments[i], evaluate);
+				}
+				else if (diff < RISING_THRESHOLD[type]) {
+					momentDifference[i] = MOMENT_LOW_PASS_FILTER * momentDifference[i] + (1 - MOMENT_LOW_PASS_FILTER) * diff;
+					if (momentDifference[i] < RISING_THRESHOLD[type]) {
+						goToStable(i, moments[i], evaluate);
+					}
+				}
+				else
+				{
+					momentDifference[i] = RISING_THRESHOLD[type] * 6;
 				}
 			}
-			else
-			{
-				momentDifference[i] = FALLING_THRESHOLD[type] * 3;
-			}
-		}
-		else if (state[i] == STATE_STABLE) {
-			if (!isFirstSample) {
-				const float diff = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
+			else if (state[i] == STATE_FALLING) {
 				if (diff >= RISING_THRESHOLD[type])
 				{
 					goToRising(i, moments[i], evaluate);
 				}
-				else if (diff < FALLING_THRESHOLD[type])
+				else if (diff >= FALLING_THRESHOLD[type]) {
+					momentDifference[i] = MOMENT_LOW_PASS_FILTER * momentDifference[i] + (1 - MOMENT_LOW_PASS_FILTER) * diff;
+					if (momentDifference[i] >= FALLING_THRESHOLD[type]) {
+						goToStable(i, moments[i], evaluate);
+					}
+				}
+				else
 				{
-					goToFalling(i, moments[i], evaluate);
+					momentDifference[i] = FALLING_THRESHOLD[type] * 3;
+				}
+			}
+			else if (state[i] == STATE_STABLE) {
+				if (!isFirstSample) {
+					if (diff >= RISING_THRESHOLD[type])
+					{
+						goToRising(i, moments[i], evaluate);
+					}
+					else if (diff < FALLING_THRESHOLD[type])
+					{
+						goToFalling(i, moments[i], evaluate);
+					}
 				}
 			}
 		}
 	}
-	isFirstSample = false;
+	else {
+		isFirstSample = false;
+	}
 }
 
 

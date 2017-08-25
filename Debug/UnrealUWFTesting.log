@@ -23,9 +23,9 @@ main.cpp(464): warning C4102: 'endDimensionLoop': unreferenced label
 main.cpp(468): warning C4101: '_': unreferenced local variable
 main.cpp(465): warning C4101: '_': unreferenced local variable
 main.cpp(458): warning C4101: '_': unreferenced local variable
-main.cpp(758): warning C4018: '<': signed/unsigned mismatch
-main.cpp(769): warning C4018: '<': signed/unsigned mismatch
-main.cpp(929): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
+main.cpp(779): warning C4018: '<': signed/unsigned mismatch
+main.cpp(790): warning C4018: '<': signed/unsigned mismatch
+main.cpp(950): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
           with
           [
               _Ty=CircularBuffer<Moment *> *
