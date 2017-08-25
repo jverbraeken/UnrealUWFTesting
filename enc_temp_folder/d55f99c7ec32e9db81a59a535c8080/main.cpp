@@ -244,8 +244,12 @@ bool executeDTW(const int gesture, const int dimension, const int sizeTillEnd, c
 
 	auto newSize = size;
 
+<<<<<<< HEAD
 	vector<vector<double>> d(newSize, vector<double>(newSize));
 	vector<vector<double>> D(newSize, vector<double>(newSize));
+=======
+				const float momentValue = averagedMomentBuffer[j_minus_one];
+>>>>>>> e54a3a907533fad585094a6841c2ccbc27c35d2a
 
 	vector<Moment*> moments = (*momentBuffer)[dimension]->getData();
 	vector<float> momentValues = vector<float>(moments.size());
