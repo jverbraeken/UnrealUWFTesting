@@ -3,23 +3,29 @@ main.cpp(34): warning C4838: conversion from 'double' to 'const int' requires a 
 main.cpp(34): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
 main.cpp(35): warning C4838: conversion from 'double' to 'const int' requires a narrowing conversion
 main.cpp(35): warning C4244: 'initializing': conversion from 'double' to 'const int', possible loss of data
-main.cpp(136): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
-main.cpp(139): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
-main.cpp(145): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
-main.cpp(177): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
-main.cpp(195): warning C4018: '>': signed/unsigned mismatch
-main.cpp(209): warning C4018: '<': signed/unsigned mismatch
-main.cpp(325): warning C4018: '<': signed/unsigned mismatch
-main.cpp(330): warning C4018: '<': signed/unsigned mismatch
-main.cpp(333): warning C4018: '<': signed/unsigned mismatch
-main.cpp(342): warning C4018: '<': signed/unsigned mismatch
-main.cpp(343): warning C4018: '<': signed/unsigned mismatch
-main.cpp(434): warning C4102: 'endDimensionLoop': unreferenced label
-main.cpp(438): warning C4101: '_': unreferenced local variable
-main.cpp(435): warning C4101: '_': unreferenced local variable
-main.cpp(428): warning C4101: '_': unreferenced local variable
-main.cpp(739): warning C4018: '<': signed/unsigned mismatch
-main.cpp(915): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
+main.cpp(133): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
+main.cpp(136): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+main.cpp(142): warning C4244: 'argument': conversion from 'double' to 'unsigned int', possible loss of data
+main.cpp(174): warning C4244: 'return': conversion from 'float' to 'int', possible loss of data
+main.cpp(186): warning C4018: '>': signed/unsigned mismatch
+main.cpp(195): warning C4018: '<': signed/unsigned mismatch
+main.cpp(205): warning C4018: '<': signed/unsigned mismatch
+main.cpp(210): warning C4018: '<': signed/unsigned mismatch
+main.cpp(213): warning C4018: '<': signed/unsigned mismatch
+main.cpp(221): warning C4018: '<': signed/unsigned mismatch
+main.cpp(227): warning C4018: '<': signed/unsigned mismatch
+main.cpp(229): warning C4018: '<': signed/unsigned mismatch
+main.cpp(252): warning C4018: '<': signed/unsigned mismatch
+main.cpp(309): warning C4018: '<': signed/unsigned mismatch
+main.cpp(316): warning C4018: '<': signed/unsigned mismatch
+main.cpp(329): warning C4018: '<': signed/unsigned mismatch
+main.cpp(464): warning C4102: 'endDimensionLoop': unreferenced label
+main.cpp(468): warning C4101: '_': unreferenced local variable
+main.cpp(465): warning C4101: '_': unreferenced local variable
+main.cpp(458): warning C4101: '_': unreferenced local variable
+main.cpp(758): warning C4018: '<': signed/unsigned mismatch
+main.cpp(769): warning C4018: '<': signed/unsigned mismatch
+main.cpp(929): warning C4800: 'std::vector<CircularBuffer<Moment *> *,std::allocator<_Ty>> *': forcing value to bool 'true' or 'false' (performance warning)
           with
           [
               _Ty=CircularBuffer<Moment *> *
@@ -40,6 +46,6 @@ c:\users\jverb\documents\git\unrealuwftesting\Vector.h(134): warning C4101: 'a':
           [
               T=Capture *
           ]
-  main.cpp(329): note: see reference to class template instantiation 'CircularBuffer<Capture *>' being compiled
+  main.cpp(312): note: see reference to class template instantiation 'CircularBuffer<Capture *>' being compiled
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.exe
   UnrealUWFTesting.vcxproj -> C:\Users\jverb\Documents\Git\UnrealUWFTesting\Debug\UnrealUWFTesting.pdb (Full PDB)

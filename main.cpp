@@ -31,8 +31,8 @@ static const int FROM_FALLING_TO_STABLE[] = { 4000, 80 };
 static const int FROM_STABLE_TO_RISING[] = { 4000, 80 };
 static const int FROM_STABLE_TO_FALLING[] = { -4000, -80 };
 
-static const int FALLING_THRESHOLD[] = { -6, -0.3 };
-static const int RISING_THRESHOLD[] = { 6, 0.3 };
+static const int FALLING_THRESHOLD[] = { -6, -0.5 };
+static const int RISING_THRESHOLD[] = { 6, 0.5 };
 
 static const unsigned char COMTP_SENSOR_DATA = 1;
 static const unsigned char COMTP_SHAKING_STARTED = 2;
@@ -54,9 +54,7 @@ vector<string> preGestureNames;
 // per gesture per dimension per sample
 vector<vector<vector<float>*>*> preGestureValues;
 // per resizement per gesture per dimension per sample
-vector<vector<vector<vector<float>*>*>*> resizedPreGestureValues;
-// per gesture per dimension the average
-vector<vector<float>*> preGestureAverage;
+vector<vector<vector<vector<float>*>*>*> resizedAveragedPreGestureValues;
 vector<vector<unsigned int>*> numPreCaptures;
 vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that we make it a CircularBuffer is because we have to convert a CircularBuffer to a vector otherwise
 
@@ -67,7 +65,6 @@ vector<vector<float>> momentBufferAverage;
 vector<int> state;
 // for each dimension for each time a capture
 vector<CircularBuffer<Capture*>*>* captureBuffer;
-vector<int> changingMomentOffset(6);
 bool isFirstSample = true;
 int momentCounter = 0;
 vector<double> momentDifference(6);
@@ -169,148 +166,135 @@ public:
 	DTWEntry* prev;
 	int index;
 
-	DTWEntry(int value) : value(value) {}
+	DTWEntry(int value) : value(value), prev(nullptr), index(-1) {}
 	DTWEntry(int value, DTWEntry* prev, int index) : value(value), prev(prev), index(index) {}
 };
 
-int d(float f1, float f2) {
+int squaredDistance(float f1, float f2) {
 	return (f1 - f2) * (f1 - f2);
 }
 
-bool executeDTW(const int gesture, const int dimension, const int offset) {
-	int size = (*momentBuffer)[dimension]->getNumValuesInBuffer() - offset;
+bool executeDTW(const int gesture, const int dimension, const int sizeTillEnd, const int offsetFromEnd) {
+	const int size = sizeTillEnd - offsetFromEnd;
 	if (size < MINIMUM_MOMENTS_FOR_GESTURE)
 	{
 		return false;
 	}
-	int window;
 
-	vector<vector<DTWEntry*>*> s;
-
-	const float momentAverage = momentBufferAverage[dimension][size];
-	const float preGestureAvg = (*preGestureAverage[gesture])[dimension];
-
-	int newSize;
+	const auto momentAverage = momentBufferAverage[dimension][size];
 
 	if (size > preGestureValues[gesture]->back()->size())
 	{
-		newSize = preGestureValues[gesture]->back()->size();
-		window = newSize / 2;
-		for (int i = 0; i < newSize + 1; i++) {
-			s.push_back(new vector<DTWEntry*>());
-			for (int j = 0; j < newSize + 1; j++) {
-				s.back()->push_back(new DTWEntry(999999));
-			}
-		}
-		(*s[0])[0] = new DTWEntry(0);
+		auto newSize = preGestureValues[gesture]->back()->size();
+
+		vector<vector<double>> d(newSize, vector<double>(newSize));
+		vector<vector<double>> D(newSize, vector<double>(newSize));
 
 		vector<Moment*> moments = (*momentBuffer)[dimension]->getData();
 		vector<float> momentValues = vector<float>(moments.size());
-		for (int i = 0; i < moments.size(); i++)
+		for (auto i = 0; i < moments.size(); i++)
 		{
 			momentValues[i] = moments[i]->getValue();
 		}
-		vector<float>::const_iterator first = momentValues.begin() + offset;
-		vector<float>::const_iterator last = momentValues.end();
+		vector<float>::const_iterator first = momentValues.begin() + ((*momentBuffer)[dimension]->getNumValuesInBuffer() - sizeTillEnd);
+		vector<float>::const_iterator last = momentValues.end() - offsetFromEnd;
 		vector<float> subMomentBuffer(first, last);
 		vector<float>* resizedMomentBuffer = resizeVector(newSize, &subMomentBuffer);
 		vector<float> resizedAveragedMomentBuffer(newSize);
 
-		for (int i = 0; i < newSize; i++)
+		for (auto i = 0; i < newSize; i++)
 		{
 			resizedAveragedMomentBuffer[i] = (*resizedMomentBuffer)[i] - momentAverage;
 		}
 
-		/*
-		 * More or less duplicate code -> reduces an if-statement in the double for loop
-		 */
-		for (int i = 1; i < newSize + 1; i++) {
-			const int i_minus_one = i - 1;
-			const float preGestureValue = (*(*(*resizedPreGestureValues[newSize])[gesture])[dimension])[i_minus_one] - preGestureAvg;
-
-			for (int j = max(1, i - window); j < min(newSize, i + window) + 1; j++) {
-				const int j_minus_one = j - 1;
-
-				const float momentValue = resizedAveragedMomentBuffer[j_minus_one];
-
-				int cost = d(momentValue, preGestureValue);
-
-				DTWEntry* prev = (*s[i_minus_one])[j];
-				int index = 1;
-				if ((*s[i])[j_minus_one]->value < prev->value) {
-					prev = (*s[i])[j_minus_one];
-					index = 2;
-				}
-				if ((*s[i_minus_one])[j_minus_one]->value < prev->value) {
-					prev = (*s[i_minus_one])[j_minus_one];
-					index = 3;
-				}
-				(*s[i])[j] = new DTWEntry(cost + prev->value, prev, index);
-			}
-		}
-	}
-	else {
-		newSize = size;
-		window = newSize / 2;
-		for (int i = 0; i < newSize + 1; i++) {
-			s.push_back(new vector<DTWEntry*>());
-			for (int j = 0; j < newSize + 1; j++) {
-				s.back()->push_back(new DTWEntry(999999));
-			}
-		}
-		(*s[0])[0] = new DTWEntry(0);
-
-		vector<float> averagedMomentBuffer;
-		for (int i = 0; i < newSize; i++)
+		for (auto i = 0; i < newSize; i++)
 		{
-			averagedMomentBuffer.push_back((*momentBuffer)[dimension]->getElem(i + offset)->getValue() - momentAverage);
+			const auto preGestureValue = (*(*(*resizedAveragedPreGestureValues[newSize])[gesture])[dimension])[i];
+			for (auto j = 0; j < newSize; j++)
+			{
+				d[i][j] = squaredDistance(preGestureValue, resizedAveragedMomentBuffer[j]);
+			}
 		}
 
-		for (int i = 1; i < newSize + 1; i++) {
-			const int i_minus_one = i - 1;
-			const float preGestureValue = (*(*(*resizedPreGestureValues[newSize])[gesture])[dimension])[i_minus_one] - preGestureAvg;
+		D[0][0] = d[0][0];
 
-			for (int j = max(1, i - window); j < min(newSize, i + window) + 1; j++) {
-				const int j_minus_one = j - 1;
+		for (auto i = 1; i < newSize; i++)
+		{
+			D[i][0] = d[i][0] + D[i - 1][0];
+			D[0][i] = d[0][i] + D[0][i - 1];
+		}
 
-				const float momentValue = averagedMomentBuffer[i - 1];
-
-				int cost = d(momentValue, preGestureValue);
-
-				DTWEntry* prev = (*s[i_minus_one])[j];
-				int index = 1;
-				if ((*s[i])[j_minus_one]->value < prev->value) {
-					prev = (*s[i])[j_minus_one];
-					index = 2;
-				}
-				if ((*s[i_minus_one])[j - 1]->value < prev->value) {
-					prev = (*s[i_minus_one])[j_minus_one];
-					index = 3;
-				}
-				(*s[i])[j] = new DTWEntry(cost + prev->value, prev, index);
+		for (auto i = 1; i < newSize; i++)
+		{
+			for (auto j = 1; j < newSize; j++)
+			{
+				auto distance = min(min(D[i - 1][j], D[i - 1][j - 1]), D[i][j - 1]);
+				distance += d[i][j];
+				D[i][j] = distance += d[i][j];
 			}
+		}
+		cout << "Total distance = " << D.back().back() << endl;
+		if (D.back().back() < 30000)
+		{
+			return true;
+		}
+		return false;
+	}
+
+
+	auto newSize = size;
+
+	vector<vector<double>> d(newSize, vector<double>(newSize));
+	vector<vector<double>> D(newSize, vector<double>(newSize));
+
+	vector<Moment*> moments = (*momentBuffer)[dimension]->getData();
+	vector<float> momentValues = vector<float>(moments.size());
+	for (auto i = 0; i < moments.size(); i++)
+	{
+		momentValues[i] = moments[i]->getValue();
+	}
+	vector<float>::const_iterator first = momentValues.begin() + ((*momentBuffer)[dimension]->getNumValuesInBuffer() - sizeTillEnd);
+	vector<float>::const_iterator last = momentValues.end() - offsetFromEnd;
+	vector<float> subMomentBuffer(first, last);
+
+	vector<float> averagedMomentBuffer;
+	for (auto i = 0; i < newSize; i++)
+	{
+		averagedMomentBuffer.push_back(subMomentBuffer[i] - momentAverage);
+	}
+
+	for (auto i = 0; i < newSize; i++)
+	{
+		const float preGestureValue = (*(*(*resizedAveragedPreGestureValues[newSize])[gesture])[dimension])[i];
+		for (auto j = 0; j < newSize; j++)
+		{
+			d[i][j] = squaredDistance(preGestureValue, averagedMomentBuffer[j]);
 		}
 	}
 
-	double denominator = sqrt(2 * newSize * newSize);
-	double windowTimesDenominator = window * denominator;
-	int i = newSize;
-	int j = newSize;
-	while (true) {
-		if ((*s[i])[j]->index == 1) { i--; }
-		if ((*s[i])[j]->index == 2) { j--; }
-		if ((*s[i])[j]->index == 3) { i--; j--; }
-		double distance = abs(newSize * i - newSize * j);
-		if (distance > windowTimesDenominator) // More efficient than dividing distance by denominator for the true distance and then comparing with window
+	D[0][0] = d[0][0];
+
+	for (auto i = 1; i < newSize; i++)
+	{
+		D[i][0] = d[i][0] + D[i - 1][0];
+		D[0][i] = d[0][i] + D[0][i - 1];
+	}
+
+	for (auto i = 1; i < newSize; i++)
+	{
+		for (auto j = 1; j < newSize; j++)
 		{
-			return false;
-		}
-		if (i == 0 || j == 0)
-		{
-			break;
+			auto distance = min(min(D[i - 1][j], D[i - 1][j - 1]), D[i][j - 1]);
+			distance += d[i][j];
+			D[i][j] = distance;
 		}
 	}
-	return true;
+	cout << "Total distance = " << D.back().back() << endl;
+	if (D.back().back() < 30000)
+	{
+		return true;
+	}
+	return false;
 }
 
 
@@ -325,61 +309,109 @@ void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
 		bool matched[6];
 		for (int j = 0; j < 6; j++) {
-				matched[j] = false;
-			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>((*captureBuffer)[j]->getNumValuesInBuffer() + 1));
+			const int numCaptures = (*captureBuffer)[j]->getNumValuesInBuffer();
+
+			matched[j] = false;
+			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>(numCaptures + 1));
 			for (int k = 1; k < (*numPreCaptures[i])[j] + 1; k++) {
 				dtwTemplate[k][0] = 999999;
 			}
-			for (int k = 1; k < (*captureBuffer)[j]->getNumValuesInBuffer() + 1; k++) {
+			for (int k = 1; k < numCaptures + 1; k++) {
 				dtwTemplate[0][k] = 999999;
 			}
 			dtwTemplate[0][0] = 0;
 
 			// TODO this should be reversed to improve efficiency
-			for (int captureOffset = 0; captureOffset <= int((*captureBuffer)[j]->getNumValuesInBuffer()) - int((*numPreCaptures[i])[j]); captureOffset++) {
+			for (int captureOffset = 0; captureOffset <= numCaptures - int((*numPreCaptures[i])[j]); captureOffset++) {
 				vector<vector<int>> dtw = dtwTemplate; // copying is more efficient than constructing a new one
 				int momentOffset = -1;
+				int offsetFromEnd = 0;
 				for (int k = 0; k < (*numPreCaptures[i])[j]; k++) {
-					for (int l = 0; l < (*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset; l++) {
+					const char preCaptureState = (*(*preCaptures[i])[j])[k]->getState();
+					for (int l = 0; l < numCaptures - captureOffset; l++) {
 						const int captureNum = l + captureOffset;
-						if ((*(*captureBuffer)[j])[captureNum]->getMomentCounterAtStart() < momentCounter - MOMENT_BUFFER_SIZE)
+						const char captureState = (*(*captureBuffer)[j])[captureNum]->getState();
+						const int captureStartMoment = (*(*captureBuffer)[j])[captureNum]->getMomentCounterAtStart();
+
+						if (captureStartMoment < momentCounter - MOMENT_BUFFER_SIZE)
 						{
 							dtw[k + 1][l + 1] = 999999;
 							continue;
 						}
 						if (momentOffset == -1)
 						{
-							momentOffset = momentCounter - (*(*captureBuffer)[j])[captureNum]->getMomentCounterAtStart();
+							momentOffset = momentCounter - captureStartMoment;
 							if (momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
 							{
 								goto endCaptureOffsetLoop;
 							}
 						}
-						int cost = -1;
-						if ((*(*preCaptures[i])[j])[k]->getState() == (*(*captureBuffer)[j])[captureNum]->getState()) {
+
+						auto cost = -1;
+
+						// Last Capture is STABLE
+						if (captureState == STATE_STABLE && captureNum == numCaptures - 1)
+						{
+							cost = 0;
+
+							auto lastValue = (*(*momentBuffer)[j])[(*momentBuffer)[j]->getNumValuesInBuffer() - 1]->getValue();
+							auto success = false;
+							int type = j < 3 ? 0 : 1;
+
+							if ((*(*captureBuffer)[j])[captureNum - 1]->getState() == STATE_FALLING)
+							{
+								for (int m = (*momentBuffer)[j]->getNumValuesInBuffer() - 2; m >= 0; m--)
+								{
+									if (lastValue - (*(*momentBuffer)[j])[m]->getValue() <= FALLING_THRESHOLD[type])
+									{
+										offsetFromEnd = (*momentBuffer)[j]->getNumValuesInBuffer() - m;
+										success = true;
+										break;
+									}
+								}
+							}
+							if ((*(*captureBuffer)[j])[captureNum - 1]->getState() == STATE_RISING)
+							{
+								for (int m = (*momentBuffer)[j]->getNumValuesInBuffer() - 2; m >= 0; m--)
+								{
+									if (lastValue - (*(*momentBuffer)[j])[m]->getValue() >= RISING_THRESHOLD[type])
+									{
+										offsetFromEnd = (*momentBuffer)[j]->getNumValuesInBuffer() - m;
+										success = true;
+										break;
+									}
+								}
+							}
+
+							if (!success)
+							{
+								cout << "Something went wrong while determining offsetFromEnd" << endl;
+							}
+						}
+						else if (preCaptureState == captureState) {
 							cost = 0;
 						}
-						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_FALLING) {
-							if ((*(*captureBuffer)[j])[captureNum]->getState() == STATE_STABLE) {
+						else if (preCaptureState == STATE_FALLING) {
+							if (captureState == STATE_STABLE) {
 								cost = 2;
 							}
-							else if ((*(*captureBuffer)[j])[captureNum]->getState() == STATE_RISING) {
+							else if (captureState == STATE_RISING) {
 								cost = 5;
 							}
 						}
-						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_STABLE) {
-							if ((*(*captureBuffer)[j])[captureNum]->getState() == STATE_FALLING) {
+						else if (preCaptureState == STATE_STABLE) {
+							if (captureState == STATE_FALLING) {
 								cost = 2;
 							}
-							else if ((*(*captureBuffer)[j])[captureNum]->getState() == STATE_RISING) {
+							else if (captureState == STATE_RISING) {
 								cost = 2;
 							}
 						}
-						else if ((*(*preCaptures[i])[j])[k]->getState() == STATE_RISING) {
-							if ((*(*captureBuffer)[j])[captureNum]->getState() == STATE_FALLING) {
+						else if (preCaptureState == STATE_RISING) {
+							if (captureState == STATE_FALLING) {
 								cost = 5;
 							}
-							else if ((*(*captureBuffer)[j])[captureNum]->getState() == STATE_STABLE) {
+							else if (captureState == STATE_STABLE) {
 								cost = 2;
 							}
 						}
@@ -399,28 +431,26 @@ void checkCaptureBuffer() {
 					matched[j] = true;
 					goto endCaptureOffsetLoop;
 				}
-				else {
-					// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
-					// scaling factor = (end time - start time) / (gesture start time - gesture end time)
-					if (double(dtw[(*numPreCaptures[i])[j]][(*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset]) / double((*captureBuffer)[j]->getNumValuesInBuffer() - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
-						cout << "UWF matched.......   " << endl;
-						if (momentCounter - momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
+				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
+				// scaling factor = (end time - start time) / (gesture start time - gesture end time)
+				if (double(dtw[(*numPreCaptures[i])[j]][numCaptures - captureOffset]) / double(numCaptures - captureOffset) < CAPTURES_MATCH_GESTURE_THRESHOLD) {
+					cout << "UWF matched.......   " << endl;	
+					if (momentCounter - momentOffset < MINIMUM_MOMENTS_FOR_GESTURE)
+					{
+						cout << "Too few moments for a gesture..." << endl;
+					}
+					else if (executeDTW(i, j, momentOffset, offsetFromEnd)) {
+						cout << "--------------- Gesture partly matched!" << endl;
+						if (j == 2)
 						{
-							cout << "Too few moments for a gesture..." << endl;
-						}
-						else if (executeDTW(i, j, momentOffset)) {
-							cout << "Gesture partly matched!" << endl;
-							if (j == 2)
-							{
-								cout << "Gesture matched!!!" << endl;
-								for (int l = 0; l < 6; l++) {
-									(*captureBuffer)[l]->reset();
-								}
-								goto endGestureLoop;
+							cout << "-------------------------- Gesture matched!!!" << endl;
+							for (int l = 0; l < 6; l++) {
+								(*captureBuffer)[l]->reset();
 							}
-							matched[j] = true;
-							goto endCaptureOffsetLoop;
+							goto endGestureLoop;
 						}
+						matched[j] = true;
+						goto endCaptureOffsetLoop;
 					}
 				}
 			}
@@ -438,62 +468,59 @@ endGestureLoop:
 	int _;
 }
 
-void goToRising(int i, Moment *moment, bool evaluate) {
-	cout << i << " - State is RISING" << endl;
-	if ((*captureBuffer)[i]->getNumValuesInBuffer() > 0) {
-		(*captureBuffer)[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
-			(*momentBuffer)[i]->getElem((*momentBuffer)[i]->getNumValuesInBuffer() - changingMomentOffset[i])->getValue());
+void goToRising(int dimension, Moment *moment, bool evaluate) {
+	if ((*captureBuffer)[dimension]->getNumValuesInBuffer() > 0) {
+		(*captureBuffer)[dimension]->getBack()->end(
+			(*momentBuffer)[dimension]->getBack()->getTime(),
+			(*momentBuffer)[dimension]->getBack()->getValue());
 	}
-	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
+	(*captureBuffer)[dimension]->push_back(new Capture(moment->getTime(),
 		STATE_RISING,
 		moment->getValue(),
 		momentCounter));
-	state[i] = STATE_RISING;
-	changingMomentOffset[i] = 0;
+	state[dimension] = STATE_RISING;
+	cout << dimension << " - State is RISING" << endl;
 	if (evaluate) {
 		checkCaptureBuffer();
 	}
 }
 
-void goToStable(int i, Moment *moment, bool evaluate, bool showText) {
-	if (showText) {
-		cout << i << " - State is STABLE" << endl;
+void goToStable(int dimension, Moment *moment, bool evaluate) {
+	if ((*captureBuffer)[dimension]->getNumValuesInBuffer() > 0) {
+		(*captureBuffer)[dimension]->getBack()->end(
+			(*momentBuffer)[dimension]->getBack()->getTime(),
+			(*momentBuffer)[dimension]->getBack()->getValue());
 	}
-	if ((*captureBuffer)[i]->getNumValuesInBuffer() > 0) {
-		(*captureBuffer)[i]->getBack()->end((*momentBuffer)[i]->getBack()->getTime(),
-			(*momentBuffer)[i]->getElem((*momentBuffer)[i]->getNumValuesInBuffer() - changingMomentOffset[i])->getValue());
-	}
-	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
+	(*captureBuffer)[dimension]->push_back(new Capture(moment->getTime(),
 		STATE_STABLE,
 		moment->getValue(),
 		momentCounter));
-	state[i] = STATE_STABLE;
-	changingMomentOffset[i] = 0;
+	state[dimension] = STATE_STABLE;
+	cout << dimension << " - State is STABLE" << endl;
 	if (evaluate) {
 		checkCaptureBuffer();
 	}
 }
 
-void goToFalling(int i, Moment *moment, bool evaluate) {
-	cout << i << " - State is FALLING" << endl;
-	if ((*captureBuffer)[i]->getNumValuesInBuffer() > 0) {
-		(*captureBuffer)[i]->getBack()->end(
-			(*momentBuffer)[i]->getBack()->getTime(),
-			(*momentBuffer)[i]->getElem((*momentBuffer)[i]->getNumValuesInBuffer() - changingMomentOffset[i])->getValue());
+void goToFalling(int dimension, Moment *moment, bool evaluate) {
+	if ((*captureBuffer)[dimension]->getNumValuesInBuffer() > 0) {
+		(*captureBuffer)[dimension]->getBack()->end(
+			(*momentBuffer)[dimension]->getBack()->getTime(),
+			(*momentBuffer)[dimension]->getBack()->getValue());
 	}
-	(*captureBuffer)[i]->push_back(new Capture(moment->getTime(),
+	(*captureBuffer)[dimension]->push_back(new Capture(moment->getTime(),
 		STATE_FALLING,
 		moment->getValue(),
 		momentCounter));
-	state[i] = STATE_FALLING;
-	changingMomentOffset[i] = 0;
+	state[dimension] = STATE_FALLING;
+	cout << dimension << " - State is FALLING" << endl;
 	if (evaluate) {
 		checkCaptureBuffer();
 	}
 }
 
 void executeUWF(vector<Moment*> moments, bool evaluate = true) {
-	for (int i = 0; i < 3; i++) {
+	for (int i = 2; i < 3; i++) {
 		const unsigned int type = i < 3 ? 0u : 1u;
 		if (state[i] == STATE_RISING) {
 			const float diff = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
@@ -504,9 +531,8 @@ void executeUWF(vector<Moment*> moments, bool evaluate = true) {
 			else if (diff < RISING_THRESHOLD[type]) {
 				momentDifference[i] = MOMENT_LOW_PASS_FILTER * momentDifference[i] + (1 - MOMENT_LOW_PASS_FILTER) * diff;
 				if (momentDifference[i] < RISING_THRESHOLD[type]) {
-					goToStable(i, moments[i], evaluate, true);
+					goToStable(i, moments[i], evaluate);
 				}
-				changingMomentOffset[i]++;
 			}
 			else
 			{
@@ -522,13 +548,12 @@ void executeUWF(vector<Moment*> moments, bool evaluate = true) {
 			else if (diff >= FALLING_THRESHOLD[type]) {
 				momentDifference[i] = MOMENT_LOW_PASS_FILTER * momentDifference[i] + (1 - MOMENT_LOW_PASS_FILTER) * diff;
 				if (momentDifference[i] >= FALLING_THRESHOLD[type]) {
-					goToStable(i, moments[i], evaluate, true);
+					goToStable(i, moments[i], evaluate);
 				}
-				changingMomentOffset[i]++;
 			}
 			else
 			{
-				momentDifference[i] = FALLING_THRESHOLD[type] * 6;
+				momentDifference[i] = FALLING_THRESHOLD[type] * 3;
 			}
 		}
 		else if (state[i] == STATE_STABLE) {
@@ -541,11 +566,6 @@ void executeUWF(vector<Moment*> moments, bool evaluate = true) {
 				else if (diff < FALLING_THRESHOLD[type])
 				{
 					goToFalling(i, moments[i], evaluate);
-				}
-				changingMomentOffset[i]++;
-				if (changingMomentOffset[i] == MOMENT_BUFFER_SIZE - 1)
-				{
-					goToStable(i, moments[i], evaluate, false);
 				}
 			}
 		}
@@ -665,7 +685,6 @@ void useGRT() {
 			preGestureValues.back()->push_back(new vector<float>());
 		}
 		numPreCaptures.push_back(new vector<unsigned int>());
-		preGestureAverage.push_back(new vector<float>);
 		UINT classLabel = 0;
 		UINT timeSeriesLength = 0;
 
@@ -712,8 +731,8 @@ void useGRT() {
 				moments.push_back(new Moment(y / 100.f, tmpTimer));
 			}
 			executeUWF(moments, false);
-			for (int i = 0; i < 6; i++) {
-				(*momentBuffer)[i]->push_back(moments[i]);
+			for (int j = 0; j < 6; j++) {
+				(*momentBuffer)[j]->push_back(moments[j]);
 			}
 			tmpTimer += 50;
 		}
@@ -738,22 +757,21 @@ void useGRT() {
 
 		for (int i = MINIMUM_MOMENTS_FOR_GESTURE; i < preGestureValues.back()->back()->size() + 1; i++)
 		{
-			resizedPreGestureValues[i]->push_back(new vector<vector<float>*>);
+			resizedAveragedPreGestureValues[i]->push_back(new vector<vector<float>*>);
 			for (int j = 0; j < 6; j++) {
 				vector<float>* resizement = resizeVector(i, (*preGestureValues.back())[j]);
-				resizedPreGestureValues[i]->back()->push_back(resizement);
+				float average = 0.f;
+				for (float value : *resizement)
+				{
+					average += value;
+				}
+				average /= resizement->size();
+				for (auto i = 0; i < resizement->size(); i++)
+				{
+					(*resizement)[i] -= average;
+				}
+				resizedAveragedPreGestureValues[i]->back()->push_back(resizement);
 			}
-		}
-
-		for (int i = 0; i < 6; i++)
-		{
-			float average = 0.f;
-			for (float value : *(*preGestureValues.back())[i])
-			{
-				average += value;
-			}
-			preGestureAverage.back()->push_back(average / (*preGestureValues.back())[i]->size());
-			changingMomentOffset[i] = 0;
 		}
 
 	}
@@ -796,7 +814,7 @@ int main() {
 
 	for (int i = 0; i < MOMENT_BUFFER_SIZE + 1; i++)
 	{
-		resizedPreGestureValues.push_back(new vector<vector<vector<float>*>*>);
+		resizedAveragedPreGestureValues.push_back(new vector<vector<vector<float>*>*>);
 	}
 
 	momentBufferAverage = vector<vector<float>>(6, vector<float>(MOMENT_BUFFER_SIZE + 1, 0));
@@ -872,11 +890,6 @@ int main() {
 			float zacc = getFloatFromBuffer(buf, 29);
 			long long acc_timestamp = getLongFromBuffer(buf, 33);
 
-			float xtouch = getFloatFromBuffer(buf, 41);
-			float ytouch = getFloatFromBuffer(buf, 45);
-			unsigned char touch_state = getByteFromBuffer(buf, 49);
-			long long touch_timestamp = getLongFromBuffer(buf, 50);
-
 			momentCounter++;
 
 			vector<Moment*> moments = vector<Moment*>();
@@ -887,13 +900,14 @@ int main() {
 			moments.push_back(new Moment(yacc, acc_timestamp));
 			moments.push_back(new Moment(zacc, acc_timestamp));
 
-			for (int i = 0; i < 6; i++)
+			for (auto i = 0; i < 6; i++)
 			{
 				int numValues = (*momentBuffer)[i]->getNumValuesInBuffer();
-				for (int j = MINIMUM_MOMENTS_FOR_GESTURE; j < numValues + 1; j++)
+				for (auto j = numValues; j >= 2; j--)
 				{
-					momentBufferAverage[i][j] = addToAverage(momentBufferAverage[i][j], numValues, moments[i]->getValue());
+					momentBufferAverage[i][j] = addToAverage(momentBufferAverage[i][j - 1], j, moments[i]->getValue());
 				}
+				momentBufferAverage[i][1] = moments[i]->getValue();
 			}
 
 #if LOG_INCOMING != 0

@@ -1,3 +1,4 @@
+#include <string>
 #include <iostream>
 #include "Capture.h"
 
@@ -13,7 +14,18 @@ Capture::Capture(long long start_time, long long end_time, float start_value, fl
 void Capture::end(long long end_time, float end_value) {
 	this->end_time = end_time;
 	this->end_value = end_value;
-	std::cout << "Capture: " << this->start_time << ", " << this->end_time << ", " << this->start_value << ", "
+	std::string tmp;
+	if (state == '0')
+	{
+		tmp = "RISING";
+	} else if (state == '1')
+	{
+		tmp = "FALLING";
+	} else
+	{
+		tmp = "STABLE";
+	}
+	std::cout << "Capture - " << tmp << ": " << this->start_time << ", " << this->end_time << ", " << this->start_value << ", "
 		<< this->end_value << ", " << static_cast<unsigned>(this->state) << std::endl;
 }
 
