@@ -24,29 +24,18 @@
 
 using namespace std;
 
-static const int FROM_RISING_TO_FALLING[] = { -7000, -140 };
-static const int FROM_RISING_TO_STABLE[] = { -4000, -80 };
-static const int FROM_FALLING_TO_RISING[] = { 7000, 140 };
-static const int FROM_FALLING_TO_STABLE[] = { 4000, 80 };
-static const int FROM_STABLE_TO_RISING[] = { 4000, 80 };
-static const int FROM_STABLE_TO_FALLING[] = { -4000, -80 };
-
-static const int FALLING_THRESHOLD[] = { -6, -0.5 };
-static const int RISING_THRESHOLD[] = { 6, 0.5 };
+static const int FALLING_THRESHOLD[] = { -4, -0.5 };
+static const int RISING_THRESHOLD[] = { 4, 0.5 };
 
 static const unsigned char COMTP_SENSOR_DATA = 1;
 static const unsigned char COMTP_SHAKING_STARTED = 2;
 static const unsigned char COMTP_SHAKING_STOPPED = 3;
 
 // TODO: do we actually need this?
-static const double CAPTURES_MATCH_GESTURE_THRESHOLD = 0.5;
+static const double CAPTURES_MATCH_GESTURE_THRESHOLD = 1.5;
 static const double DTW_MATCH_GESTURE_THRESHOLD = 5;
 
-static const double MOMENT_LOW_PASS_FILTER = 0.8;
-
-class Capture;
-
-class Moment;
+static const double MOMENT_LOW_PASS_FILTER = 0.5;
 
 unsigned int numGestures;
 // per gesture
@@ -61,7 +50,7 @@ vector<vector<CircularBuffer<Capture*>*>*> preCaptures; // the only reason that 
 // for each dimension for each time a moment
 vector<CircularBuffer<Moment *> *> * momentBuffer;
 // per dimension per resizement an average
-vector<vector<float>> momentBufferAverage;
+vector<vector<float>*> momentBufferAverage;
 vector<int> state;
 // for each dimension for each time a capture
 vector<CircularBuffer<Capture*>*>* captureBuffer;
@@ -160,16 +149,6 @@ float addToAverage(float average, int size, float value)
 
 
 
-class DTWEntry {
-public:
-	int value;
-	DTWEntry* prev;
-	int index;
-
-	DTWEntry(int value) : value(value), prev(nullptr), index(-1) {}
-	DTWEntry(int value, DTWEntry* prev, int index) : value(value), prev(prev), index(index) {}
-};
-
 int squaredDistance(float f1, float f2) {
 	return (f1 - f2) * (f1 - f2);
 }
@@ -181,7 +160,7 @@ bool executeDTW(const int gesture, const int dimension, const int sizeTillEnd, c
 		return false;
 	}
 
-	const auto momentAverage = momentBufferAverage[dimension][size];
+	const float momentAverage = (*(momentBufferAverage[dimension]))[size];
 
 	if (size > preGestureValues[gesture]->back()->size())
 	{
@@ -307,19 +286,18 @@ bool executeDTW(const int gesture, const int dimension, const int sizeTillEnd, c
 
 void checkCaptureBuffer() {
 	for (int i = 0; i < numGestures; i++) {
-		bool matched[6];
 		for (int j = 0; j < 6; j++) {
 			const int numCaptures = (*captureBuffer)[j]->getNumValuesInBuffer();
 
-			matched[j] = false;
+			bool matched = false;
 			vector<vector<int>> dtwTemplate((*numPreCaptures[i])[j] + 1, vector<int>(numCaptures + 1));
+			dtwTemplate[0][0] = 0;
 			for (int k = 1; k < (*numPreCaptures[i])[j] + 1; k++) {
 				dtwTemplate[k][0] = 999999;
 			}
 			for (int k = 1; k < numCaptures + 1; k++) {
 				dtwTemplate[0][k] = 999999;
 			}
-			dtwTemplate[0][0] = 0;
 
 			// TODO this should be reversed to improve efficiency
 			for (int captureOffset = 0; captureOffset <= numCaptures - int((*numPreCaptures[i])[j]); captureOffset++) {
@@ -354,8 +332,8 @@ void checkCaptureBuffer() {
 						{
 							cost = 0;
 
-							auto lastValue = (*(*momentBuffer)[j])[(*momentBuffer)[j]->getNumValuesInBuffer() - 1]->getValue();
-							auto success = false;
+							float lastValue = (*(*momentBuffer)[j])[(*momentBuffer)[j]->getNumValuesInBuffer() - 1]->getValue();
+							bool success = false;
 							int type = j < 3 ? 0 : 1;
 
 							if ((*(*captureBuffer)[j])[captureNum - 1]->getState() == STATE_FALLING)
@@ -428,7 +406,7 @@ void checkCaptureBuffer() {
 						}
 						goto endGestureLoop;
 					}
-					matched[j] = true;
+					matched = true;
 					goto endCaptureOffsetLoop;
 				}
 				// After reversing, save the start time of the first capture that matches the gesture and the end time of the last gesture
@@ -449,14 +427,14 @@ void checkCaptureBuffer() {
 							}
 							goto endGestureLoop;
 						}
-						matched[j] = true;
+						matched = true;
 						goto endCaptureOffsetLoop;
 					}
 				}
 			}
 		endCaptureOffsetLoop:
 			int _;
-			if (matched[j] == false)
+			if (matched == false)
 			{
 				break;
 			}
@@ -471,8 +449,8 @@ endGestureLoop:
 void goToRising(int dimension, Moment *moment, bool evaluate) {
 	if ((*captureBuffer)[dimension]->getNumValuesInBuffer() > 0) {
 		(*captureBuffer)[dimension]->getBack()->end(
-			(*momentBuffer)[dimension]->getBack()->getTime(),
-			(*momentBuffer)[dimension]->getBack()->getValue());
+			moment->getTime(),
+			moment->getValue());
 	}
 	(*captureBuffer)[dimension]->push_back(new Capture(moment->getTime(),
 		STATE_RISING,
@@ -488,8 +466,8 @@ void goToRising(int dimension, Moment *moment, bool evaluate) {
 void goToStable(int dimension, Moment *moment, bool evaluate) {
 	if ((*captureBuffer)[dimension]->getNumValuesInBuffer() > 0) {
 		(*captureBuffer)[dimension]->getBack()->end(
-			(*momentBuffer)[dimension]->getBack()->getTime(),
-			(*momentBuffer)[dimension]->getBack()->getValue());
+			moment->getTime(),
+			moment->getValue());
 	}
 	(*captureBuffer)[dimension]->push_back(new Capture(moment->getTime(),
 		STATE_STABLE,
@@ -505,8 +483,8 @@ void goToStable(int dimension, Moment *moment, bool evaluate) {
 void goToFalling(int dimension, Moment *moment, bool evaluate) {
 	if ((*captureBuffer)[dimension]->getNumValuesInBuffer() > 0) {
 		(*captureBuffer)[dimension]->getBack()->end(
-			(*momentBuffer)[dimension]->getBack()->getTime(),
-			(*momentBuffer)[dimension]->getBack()->getValue());
+			moment->getTime(),
+			moment->getValue());
 	}
 	(*captureBuffer)[dimension]->push_back(new Capture(moment->getTime(),
 		STATE_FALLING,
@@ -521,7 +499,7 @@ void goToFalling(int dimension, Moment *moment, bool evaluate) {
 
 void executeUWF(vector<Moment*> moments, bool evaluate = true) {
 	if (!isFirstSample) {
-		for (int i = 2; i < 3; i++) {
+		for (int i = 1; i < 2; i++) {
 			const unsigned int type = i < 3 ? 0u : 1u;
 			const float value_0 = moments[i]->getValue() - ((*momentBuffer)[i]->getBack()->getValue() - 360);
 			const float value_1 = moments[i]->getValue() - (*momentBuffer)[i]->getBack()->getValue();
@@ -542,7 +520,7 @@ void executeUWF(vector<Moment*> moments, bool evaluate = true) {
 			{
 				diff = value_2;
 			}
-			cout << diff << "     | " << moments[i]->getValue() << endl;
+			//cout << diff << "     | " << moments[i]->getValue() << endl;
 			if (state[i] == STATE_RISING) {
 				if (diff < FALLING_THRESHOLD[type])
 				{
@@ -608,9 +586,9 @@ void executeUWF(vector<Moment*> moments, bool evaluate = true) {
 void useGRT() {
 	preGestureValues = vector<vector<vector<float>*>*>();
 
-	cout << "Testing file \"tilting.grt\"" << endl << endl;
+	cout << "Testing file \"walking.grt\"" << endl << endl;
 	ifstream in;
-	in.open("C:\\Users\\jverb\\Documents\\Git\\UnrealUWFTesting\\tilting.grt");
+	in.open("C:\\Users\\jverb\\Documents\\Git\\UnrealUWFTesting\\walking.grt");
 	if (!in.is_open()) {
 		cout << "File cannot be opened" << endl;
 	}
@@ -674,13 +652,6 @@ void useGRT() {
 		in >> b;
 	}
 
-	//Get the UseExternalRanges
-	in >> word;
-	if (word != "UseExternalRanges:") {
-		in.close();
-		cout << "loadDatasetFromFile(std::string filename) - Failed to find UseExternalRanges!" << std::endl;
-	}
-
 	int a;
 	in >> a;
 
@@ -708,6 +679,7 @@ void useGRT() {
 		numPreCaptures.push_back(new vector<unsigned int>());
 		UINT classLabel = 0;
 		UINT timeSeriesLength = 0;
+		UINT duration = 0;
 
 		in >> word;
 		if (word != "************TIME_SERIES************") {
@@ -728,6 +700,13 @@ void useGRT() {
 			cout << "loadDatasetFromFile(std::string filename) - Failed to find TimeSeriesLength!" << std::endl;
 		}
 		in >> timeSeriesLength;
+
+		in >> word;
+		if (word != "Duration:") {
+			in.close();
+			cout << "loadDatasetFromFile(std::string filename) - Failed to find Duration!" << std::endl;
+		}
+		in >> 
 
 		in >> word;
 		if (word != "TimeSeriesData:") {
@@ -838,7 +817,9 @@ int main() {
 		resizedAveragedPreGestureValues.push_back(new vector<vector<vector<float>*>*>);
 	}
 
-	momentBufferAverage = vector<vector<float>>(6, vector<float>(MOMENT_BUFFER_SIZE + 1, 0));
+	for (int i = 0; i < 6; i++) {
+		momentBufferAverage.push_back(new vector<float>(MOMENT_BUFFER_SIZE + 1, 0));
+	}
 
 	useGRT();
 
@@ -916,6 +897,7 @@ int main() {
 			vector<Moment*> moments = vector<Moment*>();
 			moments.push_back(new Moment(xrot, rot_timestamp));
 			moments.push_back(new Moment(yrot, rot_timestamp));
+			cout << yrot << endl;
 			moments.push_back(new Moment(zrot, rot_timestamp));
 			moments.push_back(new Moment(xacc, acc_timestamp));
 			moments.push_back(new Moment(yacc, acc_timestamp));
@@ -926,9 +908,9 @@ int main() {
 				int numValues = (*momentBuffer)[i]->getNumValuesInBuffer();
 				for (auto j = numValues; j >= 2; j--)
 				{
-					momentBufferAverage[i][j] = addToAverage(momentBufferAverage[i][j - 1], j, moments[i]->getValue());
+					(*(momentBufferAverage[i]))[j] = addToAverage((*(momentBufferAverage[i]))[j - 1], j, moments[i]->getValue());
 				}
-				momentBufferAverage[i][1] = moments[i]->getValue();
+				(*(momentBufferAverage[i]))[1] = moments[i]->getValue();
 			}
 
 #if LOG_INCOMING != 0
@@ -947,7 +929,7 @@ int main() {
 				touch_timestamp);
 #endif
 
-			executeUWF(moments, momentBuffer);
+			executeUWF(moments);
 			for (int i = 0; i < 6; i++) {
 				(*momentBuffer)[i]->push_back(moments[i]);
 			}
